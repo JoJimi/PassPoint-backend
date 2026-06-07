@@ -4,6 +4,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
+/**
+ * 애플리케이션 전역에서 사용하는 에러 코드 정의
+ * - HTTP 상태, 고유 코드(식별자), 사용자 메시지를 한 곳에서 관리
+ * - 새 예외가 필요해질 때 항목을 추가한다 (사용하는 것만 정의)
+ */
 @Getter
 @AllArgsConstructor
 public enum ErrorCode {
@@ -28,7 +33,7 @@ public enum ErrorCode {
     // 사용자 (USER)
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER001", "사용자를 찾을 수 없습니다.");
 
-    private final HttpStatus httpStatus;
-    private final String code;
-    private final String message;
+    private final HttpStatus httpStatus;   // 응답 HTTP 상태 코드
+    private final String code;             // 에러 식별 코드 (클라이언트 분기용)
+    private final String message;          // 기본 사용자 메시지
 }

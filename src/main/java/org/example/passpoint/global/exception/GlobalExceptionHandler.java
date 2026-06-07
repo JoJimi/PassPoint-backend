@@ -19,6 +19,8 @@ import java.util.List;
 
 /**
  * 전역 예외 처리 핸들러
+ * - 컨트롤러에서 던져진 예외를 가로채 일관된 ErrorResponse(JSON)로 변환
+ * - @RestControllerAdvice로 모든 컨트롤러에 적용된다
  */
 @Slf4j
 @RestControllerAdvice
