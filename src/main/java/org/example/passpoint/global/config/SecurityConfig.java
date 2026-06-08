@@ -7,6 +7,7 @@ import org.example.passpoint.global.jwt.JwtProvider;
 import org.example.passpoint.global.jwt.filter.JwtAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -18,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
+    private final StringRedisTemplate redisTemplate;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Bean
@@ -33,7 +35,8 @@ public class SecurityConfig {
                 // 경로별 권한
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/v1/auth/**",          // 로그인/갱신 등은 공개
+                                "/api/v1/auth/login/**",    // 로그인은 공개
+                                "/api/v1/auth/refresh",     // 갱신도 공개
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
@@ -47,7 +50,7 @@ public class SecurityConfig {
                 )
                 // JWT 필터를 UsernamePasswordAuthenticationFilter 앞에 등록
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider),
+                        new JwtAuthenticationFilter(jwtProvider, redisTemplate),
                         UsernamePasswordAuthenticationFilter.class
                 );
 

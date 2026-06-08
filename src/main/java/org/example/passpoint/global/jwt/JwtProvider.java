@@ -67,6 +67,12 @@ public class JwtProvider {
         return true;
     }
 
+    /** 토큰의 남은 유효시간(밀리초) 반환 */
+    public long getRemainingValidity(String token) {
+        Date expiration = parseClaims(token).getExpiration();
+        return expiration.getTime() - System.currentTimeMillis();
+    }
+
     /** 토큰을 파싱해 Claims(내용)를 꺼냄 - 검증 실패 시 우리 예외로 변환 */
     private Claims parseClaims(String token) {
         try {

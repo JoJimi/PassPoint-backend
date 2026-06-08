@@ -15,6 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 
+/**
+ * 인증(로그인/토큰발급)의 핵심 비즈니스 로직
+ * - 구글 ID 토큰 검증 → 로그인/가입 분기 → JWT 발급 → Refresh를 Redis에 저장
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -25,6 +29,7 @@ public class AuthService {
     private final StringRedisTemplate redisTemplate;
 
     private static final String REFRESH_KEY_PREFIX = "refresh:";
+    private static final String BLACKLIST_KEY_PREFIX = "blacklist:";
     private static final Duration REFRESH_TTL = Duration.ofDays(14);
 
     /** 구글 로그인 - ID 토큰을 받아 사용자를 인증하고 JWT를 발급 */
@@ -63,6 +68,22 @@ public class AuthService {
 
         // 4. 정상 → 새 토큰 쌍 발급 + Redis 갱신(롤링)
         return issueTokens(userId);
+    }
+
+    /** 로그아웃 - refresh 삭제 + access 토큰 블랙리스트 등록 */
+    public void logout(Long userId, String accessToken) {
+        // 1. Redis의 refreshToken 삭제 → 더 이상 갱신 불가
+        redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+
+        // 2. accessToken을 블랙리스트에 등록 (남은 유효시간만큼만 TTL)
+        long remaining = jwtProvider.getRemainingValidity(accessToken);
+        if(remaining > 0) {
+            redisTemplate.opsForValue().set(
+                    BLACKLIST_KEY_PREFIX + accessToken,
+                    "logout",
+                    Duration.ofMillis(remaining)
+            );
+        }
     }
 
     /** 구글 신규 사용자 가입 처리 */
