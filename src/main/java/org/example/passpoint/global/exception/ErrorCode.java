@@ -24,8 +24,9 @@ public enum ErrorCode {
     EXTERNAL_SERVICE_ERROR(HttpStatus.SERVICE_UNAVAILABLE, "CMN009", "외부 서비스가 일시적으로 사용 불가능합니다."),
 
     // 인증/인가 (AUTH)
-    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH001", "유효하지 않은 토큰입니다."),
-    EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH002", "만료된 토큰입니다."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH001", "인증이 필요합니다."),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH002", "유효하지 않은 토큰입니다."),
+    EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH003", "만료된 토큰입니다."),
 
     // OAuth
     OAUTH_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "AUTH101", "OAuth 인증에 실패했습니다."),

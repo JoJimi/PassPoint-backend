@@ -47,11 +47,11 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
-    testImplementation("org.testcontainers:testcontainers-postgresql")
-    testImplementation("org.testcontainers:elasticsearch")
-    testImplementation("org.testcontainers:kafka")
+    // testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    // testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    // testImplementation("org.testcontainers:testcontainers-postgresql")
+    // testImplementation("org.testcontainers:elasticsearch")
+    // testImplementation("org.testcontainers:kafka")
 
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
