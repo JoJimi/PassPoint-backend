@@ -17,7 +17,8 @@ import java.util.Collections;
 /**
  * 모든 요청을 가로채 JWT를 검증하고 인증 정보를 설정하는 필터
  * - Authorization 헤더의 Bearer 토큰을 추출·검증
- * - 유효하면 SecurityContext에 인증 정보(userId)를 등록
+ * - 블랙리스트(로그아웃된 토큰) 확인 후, 유효하면 SecurityContext에 인증 정보 등록
+ * - principal에 userId, credentials에 토큰 문자열을 담음 (로그아웃 시 토큰 재사용)
  * - 토큰이 없거나 무효면 그냥 통과(인증 안 된 상태로) → 보호된 API는 뒤에서 차단됨
  */
 @RequiredArgsConstructor
@@ -69,6 +70,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         return null;
     }
-
-
 }

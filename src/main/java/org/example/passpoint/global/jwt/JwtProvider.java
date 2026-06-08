@@ -19,6 +19,7 @@ import java.util.Date;
  * - Access/Refresh 토큰 발급
  * - 토큰에서 사용자 ID(subject) 추출
  * - 토큰 유효성(위조·만료) 검증
+ * - 토큰의 남은 유효시간(밀리초) 반환
  */
 @Component
 public class JwtProvider {

@@ -16,8 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 
 /**
- * 인증(로그인/토큰발급)의 핵심 비즈니스 로직
- * - 구글 ID 토큰 검증 → 로그인/가입 분기 → JWT 발급 → Refresh를 Redis에 저장
+ * 인증 관련 핵심 비즈니스 로직
+ * - 로그인: 구글 ID 토큰 검증 → 로그인/가입 분기 → JWT 발급 → Refresh를 Redis에 저장
+ * - 토큰 갱신: Refresh 검증 + 재사용 탐지 → 새 토큰 발급(Rotation)
+ * - 로그아웃: Refresh 삭제 + Access를 블랙리스트 등록
  */
 @Service
 @RequiredArgsConstructor
