@@ -7,6 +7,7 @@ import org.example.passpoint.domain.auth.dto.response.TokenResponse;
 import org.example.passpoint.domain.user.entity.OAuthProvider;
 import org.example.passpoint.domain.user.entity.User;
 import org.example.passpoint.domain.user.repository.UserRepository;
+import org.example.passpoint.global.exception.auth.RefreshTokenMisMatchException;
 import org.example.passpoint.global.jwt.JwtProvider;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,29 @@ public class AuthService {
 
         // 3. 토큰 발급 + Refresh 저장
         return issueTokens(user.getId());
+    }
+
+    /** 토큰 갱신 - refreshToken 검증 후 새 토큰 쌍 발급 (롤링 + 재사용 탐지) */
+    @Transactional(readOnly = true)
+    public TokenResponse reissue(String refreshToken) {
+        // 1. refreshToken 자체 검증 (위조·만료) - 실패 시 JwtProvider가 예외
+        jwtProvider.validateToken(refreshToken);
+
+        // 2. 토큰에서 userId 추출
+        Long userId = jwtProvider.getUserId(refreshToken);
+
+        // 3. Redis에 저장된 refreshToken과 비교
+        String storedToken = redisTemplate.opsForValue().get(REFRESH_KEY_PREFIX + userId);
+
+        if(storedToken == null || !storedToken.equals(refreshToken)) {
+            // 저장된 게 없거나(만료/로그아웃) 다르면(재사용 의심)
+            // → 안전하게 해당 유저의 refresh를 삭제 (탈취 대응: 강제 로그아웃)
+            redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+            throw new RefreshTokenMisMatchException();
+        }
+
+        // 4. 정상 → 새 토큰 쌍 발급 + Redis 갱신(롤링)
+        return issueTokens(userId);
     }
 
     /** 구글 신규 사용자 가입 처리 */

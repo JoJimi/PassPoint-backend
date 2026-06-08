@@ -27,6 +27,7 @@ public enum ErrorCode {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "AUTH001", "인증이 필요합니다."),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH002", "유효하지 않은 토큰입니다."),
     EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "AUTH003", "만료된 토큰입니다."),
+    REFRESH_TOKEN_MISMATCH(HttpStatus.UNAUTHORIZED, "AUTH004", "리프레시 토큰이 일치하지 않습니다."),
 
     // OAuth
     OAUTH_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "AUTH101", "OAuth 인증에 실패했습니다."),

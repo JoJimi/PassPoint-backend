@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.passpoint.domain.auth.dto.request.GoogleLoginRequest;
+import org.example.passpoint.domain.auth.dto.request.RefreshRequest;
 import org.example.passpoint.domain.auth.dto.response.TokenResponse;
 import org.example.passpoint.domain.auth.service.AuthService;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,15 @@ public class AuthController {
 
         TokenResponse response = authService.loginWithGoogle(request.idToken());
         return ResponseEntity.ok(response);
+    }
+
+    /** 토큰 갱신 - refreshToken으로 Access/Refresh를 재발급한다. */
+    @Operation(summary = "토큰 갱신", description = "refreshToken으로 Access/Refresh 토큰을 재발급한다.")
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenResponse> refresh (
+            @Valid @RequestBody RefreshRequest request) {
+
+        return ResponseEntity.ok(authService.reissue(request.refreshToken()));
     }
 
 }
