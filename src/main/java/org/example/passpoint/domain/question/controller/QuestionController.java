@@ -27,7 +27,9 @@ public class QuestionController {
     @Operation(summary = "질문 검색", description = "키워드로 질문을 검색한다. (ElasticSearch + Nori).")
     @GetMapping
     public Page<QuestionSearchResponse> search (
-            @RequestParam String keyword, Pageable pageable) {
-        return questionSearchService.search(keyword, pageable);
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String category,
+            Pageable pageable) {
+        return questionSearchService.search(keyword, category, pageable);
     }
 }

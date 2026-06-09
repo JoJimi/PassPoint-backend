@@ -7,7 +7,7 @@ import org.example.passpoint.domain.question.document.QuestionDocument;
 import org.example.passpoint.domain.question.dto.QuestionSeedData;
 import org.example.passpoint.domain.question.entity.Question;
 import org.example.passpoint.domain.question.repository.QuestionRepository;
-import org.example.passpoint.domain.question.repository.QuestionSearchRepository;
+import org.example.passpoint.domain.question.repository.search.QuestionSearchRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.io.ClassPathResource;
