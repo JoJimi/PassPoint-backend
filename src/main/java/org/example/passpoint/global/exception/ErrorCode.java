@@ -33,7 +33,10 @@ public enum ErrorCode {
     OAUTH_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "AUTH101", "OAuth 인증에 실패했습니다."),
 
     // 사용자 (USER)
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER001", "사용자를 찾을 수 없습니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER001", "사용자를 찾을 수 없습니다."),
+
+    // 질문 (QUESTION)
+    QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "QUESTION001", "질문을 찾을 수 없습니다.");
 
     private final HttpStatus httpStatus;   // 응답 HTTP 상태 코드
     private final String code;             // 에러 식별 코드 (클라이언트 분기용)
