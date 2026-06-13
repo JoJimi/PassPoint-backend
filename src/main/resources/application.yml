@@ -7,6 +7,10 @@ spring:
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      max-lifetime: 290000        # 커넥션 최대 수명 (약 4.8분)
+      keepalive-time: 120000      # 2분마다 연결 살아있는지 확인
+      connection-timeout: 10000   # 연결 못 얻으면 10초 후 포기
 
   jpa:
     hibernate:

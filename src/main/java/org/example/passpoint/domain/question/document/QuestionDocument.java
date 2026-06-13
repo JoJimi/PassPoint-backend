@@ -6,11 +6,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.example.passpoint.domain.question.entity.Question;
-import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldType;
-import org.springframework.data.elasticsearch.annotations.Setting;
+import org.springframework.data.elasticsearch.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -47,10 +45,13 @@ public class QuestionDocument {
     @Field(type = FieldType.Keyword)
     private List<String> tags;
 
+    @Field(type = FieldType.Date, format = {}, pattern = "uuuu-MM-dd'T'HH:mm:ss.SSSSSS||uuuu-MM-dd'T'HH:mm:ss||uuuu-MM-dd")
+    private LocalDateTime createdAt;
+
     @Builder
     private QuestionDocument(Long id, String title, String content,
                              String mainCategory, String subCategory,
-                             String difficulty, List<String> tags) {
+                             String difficulty, List<String> tags, LocalDateTime createdAt) {
         this.id = id;
         this.title = title;
         this.content = content;
@@ -58,6 +59,7 @@ public class QuestionDocument {
         this.subCategory = subCategory;
         this.difficulty = difficulty;
         this.tags = tags;
+        this.createdAt = createdAt;
     }
 
     /** PostgreSQL의 Question 엔티티 → ES 색인용 Document 변환 */
@@ -69,7 +71,8 @@ public class QuestionDocument {
                 .mainCategory(question.getMainCategory().name())
                 .subCategory(question.getSubCategory().name())
                 .difficulty(question.getDifficulty().name())
-                .tags(List.of())        // 태그 연동은 나중에 (지금은 빈 리스트)
+                .tags(List.of())                    // 태그 연동은 나중에 (지금은 빈 리스트)
+                .createdAt(question.getCreatedAt())
                 .build();
     }
 }

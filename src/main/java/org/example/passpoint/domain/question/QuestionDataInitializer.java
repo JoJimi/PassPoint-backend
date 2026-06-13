@@ -36,6 +36,13 @@ public class QuestionDataInitializer implements ApplicationRunner {
         // 이미 질문이 있으면 시드 스킵 (중복 방지)
         if (questionRepository.count() > 0) {
             log.info("질문 데이터가 이미 존재하여 시드를 건너뜁니다.");
+
+            // ES 인덱스가 비어있으면(매핑 변경 등으로 재생성된 경우) PostgreSQL 데이터로 재색인
+            if (questionSearchRepository.count() == 0) {
+                questionRepository.findAll()
+                        .forEach(question -> questionSearchRepository.save(QuestionDocument.from(question)));
+                log.info("ES 인덱스가 비어있어 PostgreSQL 데이터로 재색인했습니다.");
+            }
             return;
         }
 

@@ -2,6 +2,7 @@ package org.example.passpoint.domain.question.dto.response;
 
 import org.example.passpoint.domain.question.document.QuestionDocument;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -14,7 +15,8 @@ public record QuestionSearchResponse(
         String mainCategory,
         String subCategory,
         String difficulty,
-        List<String> tags
+        List<String> tags,
+        LocalDateTime createdAt
 ) {
     public static QuestionSearchResponse from(QuestionDocument document) {
         return new QuestionSearchResponse(
@@ -23,7 +25,8 @@ public record QuestionSearchResponse(
                 document.getMainCategory(),
                 document.getSubCategory(),
                 document.getDifficulty(),
-                document.getTags()
+                document.getTags(),
+                document.getCreatedAt()
         );
     }
 }

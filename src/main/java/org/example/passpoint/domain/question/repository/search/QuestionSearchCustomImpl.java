@@ -1,12 +1,16 @@
 package org.example.passpoint.domain.question.repository.search;
 
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import lombok.RequiredArgsConstructor;
 import org.example.passpoint.domain.question.document.QuestionDocument;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -62,15 +66,33 @@ public class QuestionSearchCustomImpl implements QuestionSearchCustom{
         // bool: 여러 조건을 must/filter/should 등으로 묶는 복합 쿼리
         // must와 filter가 둘 다 비어있으면 → 전체 문서 매칭 (조건 없는 전체 조회)
         // 키워드만 있으면 → 키워드 검색 / 카테고리만 → 카테고리 필터 / 둘 다 → 조합
-        NativeQuery query = NativeQuery.builder()
+        NativeQueryBuilder queryBuilder = NativeQuery.builder()
                 .withQuery(q -> q
                         .bool(b -> b
                                 .must(mustQueries)        // 키워드 조건 적용
                                 .filter(filterQueries)    // 카테고리 조건 적용
                         )
                 )
-                .withPageable(pageable)   // 페이징 (page, size) 적용
-                .build();
+                // 정렬은 아래에서 ES 쿼리에 직접 적용하므로, 여기서는 페이징(page, size)만 적용
+                .withPageable(PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
+
+        // ── 정렬 조건 ──
+        // 클라이언트가 sort 파라미터(예: createdAt,desc / createdAt,asc)를 보내면 그 기준을 따르고,
+        // 보내지 않으면 최신순(createdAt desc)을 기본값으로 사용
+        Sort sort = pageable.getSort().isSorted()
+                ? pageable.getSort()
+                : Sort.by(Sort.Order.desc("createdAt"));
+
+        for (Sort.Order order : sort) {
+            queryBuilder.withSort(s -> s
+                    .field(f -> f
+                            .field(order.getProperty())
+                            .order(order.isAscending() ? SortOrder.Asc : SortOrder.Desc)
+                    )
+            );
+        }
+
+        NativeQuery query = queryBuilder.build();
 
         // ── 쿼리 실행 ──
         // operations.search: 위에서 만든 쿼리를 ES에 보내 결과(SearchHits)를 받음
