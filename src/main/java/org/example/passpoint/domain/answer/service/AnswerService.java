@@ -17,6 +17,7 @@ import org.example.passpoint.domain.feedback.repository.FeedbackRepository;
 import org.example.passpoint.domain.feedback.service.FeedbackGenerator;
 import org.example.passpoint.domain.question.entity.Question;
 import org.example.passpoint.domain.question.repository.QuestionRepository;
+import org.example.passpoint.domain.studylog.service.StudyLogService;
 import org.example.passpoint.domain.user.entity.User;
 import org.example.passpoint.domain.user.repository.UserRepository;
 import org.example.passpoint.global.exception.answer.AnswerAccessDeniedException;
@@ -53,6 +54,7 @@ public class AnswerService {
     private final FeedbackRepository feedbackRepository;
     private final FeedbackGenerator feedbackGenerator;
     private final AnswerWriteService answerWriteService;
+    private final StudyLogService studyLogService;
 
     public AnswerResponse submit(Long userId, AnswerCreateRequest request) {
         validateAnswerText(request.type(), request.answerText());
@@ -64,6 +66,9 @@ public class AnswerService {
 
         // tx1: 답변 저장 (status = ANALYZING)
         Answer answer = answerWriteService.createAnswer(user, question, request.type(), request.answerText());
+
+        // 답변 제출 성공: study_logs 갱신 + Redis 스트릭/오늘 풀이 수 갱신
+        studyLogService.recordStudy(userId);
 
         // 트랜잭션 밖: 피드백 생성 (LLM 호출 자리, 2주차는 더미)
         AnswerStatus finalStatus;
