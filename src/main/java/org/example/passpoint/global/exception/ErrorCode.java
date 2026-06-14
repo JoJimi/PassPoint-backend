@@ -45,7 +45,10 @@ public enum ErrorCode {
     ANSWER_TEXT_TOO_LONG(HttpStatus.BAD_REQUEST, "ANSWER004", "답변 내용이 너무 길어요. (최대 3000자)"),
 
     // 피드백 (FEEDBACK)
-    FEEDBACK_NOT_READY(HttpStatus.NOT_FOUND, "FEEDBACK001", "아직 피드백이 생성되지 않았습니다.");
+    FEEDBACK_NOT_READY(HttpStatus.NOT_FOUND, "FEEDBACK001", "아직 피드백이 생성되지 않았습니다."),
+
+    // 즐겨찾기 (BOOKMARK)
+    BOOKMARK_NOT_FOUND(HttpStatus.NOT_FOUND, "BOOKMARK001", "즐겨찾기를 찾을 수 없습니다.");
 
     private final HttpStatus httpStatus;   // 응답 HTTP 상태 코드
     private final String code;             // 에러 식별 코드 (클라이언트 분기용)
