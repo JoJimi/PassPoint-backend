@@ -16,4 +16,10 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
 
     @Query("SELECT f FROM Feedback f JOIN FETCH f.answer a JOIN FETCH a.question WHERE a.id = :answerId")
     Optional<Feedback> findByAnswerIdWithQuestion(@Param("answerId") Long answerId);
+
+    @Query("SELECT AVG(f.score) FROM Feedback f WHERE f.answer.user.id = :userId")
+    Double findAverageScoreByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT MAX(f.score) FROM Feedback f WHERE f.answer.user.id = :userId")
+    Integer findBestScoreByUserId(@Param("userId") Long userId);
 }

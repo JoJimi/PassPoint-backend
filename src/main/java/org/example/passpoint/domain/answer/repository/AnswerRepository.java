@@ -19,4 +19,7 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
 
     @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.user.id = :userId AND a.question.id = :questionId")
     Page<Answer> findByUserIdAndQuestionId(@Param("userId") Long userId, @Param("questionId") Long questionId, Pageable pageable);
+
+    @Query("SELECT COUNT(a) FROM Answer a WHERE a.user.id = :userId")
+    long countByUserId(@Param("userId") Long userId);
 }
