@@ -1,6 +1,7 @@
 package org.example.passpoint.domain.answer.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.passpoint.domain.answer.dto.request.AnswerCreateRequest;
 import org.example.passpoint.domain.answer.dto.response.AnswerDetailResponse;
 import org.example.passpoint.domain.answer.dto.response.AnswerResponse;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
  * 답변 제출/조회 비즈니스 로직
  * - submit()은 tx1(답변 저장) -> LLM 호출(트랜잭션 밖) -> tx2(피드백 저장+상태 전이) 순으로 진행한다
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AnswerService {
@@ -71,6 +73,7 @@ public class AnswerService {
             answerWriteService.completeFeedback(answer.getId(), result);
             finalStatus = AnswerStatus.DONE;
         } catch (Exception e) {
+            log.error("피드백 생성 실패: answerId={}", answer.getId(), e);
             // tx2: status = FAILED로 별도 마킹
             answerWriteService.markFailed(answer.getId());
             finalStatus = AnswerStatus.FAILED;
