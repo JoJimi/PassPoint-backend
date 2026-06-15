@@ -49,12 +49,14 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+    testImplementation("org.springframework.boot:spring-boot-webmvc-test")
 
-    // testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    // testImplementation("org.testcontainers:testcontainers-junit-jupiter")
-    // testImplementation("org.testcontainers:testcontainers-postgresql")
-    // testImplementation("org.testcontainers:elasticsearch")
-    // testImplementation("org.testcontainers:kafka")
+    testImplementation(platform("org.testcontainers:testcontainers-bom:1.20.4"))
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:elasticsearch")
+    // testImplementation("org.testcontainers:kafka") // 3주차 비동기 파이프라인에서 추가
 
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")

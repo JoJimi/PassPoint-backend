@@ -66,7 +66,7 @@ public class SpringAiFeedbackGenerator implements FeedbackGenerator {
     }
 
     /** LLM이 반환한 키워드를 question.keywordPool과 교집합만 남긴다 (pool에 없는 키워드는 버림) */
-    private List<String> filterKeywords(List<String> covered, List<String> keywordPool) {
+    List<String> filterKeywords(List<String> covered, List<String> keywordPool) {
         if (covered == null || keywordPool == null) {
             return List.of();
         }
