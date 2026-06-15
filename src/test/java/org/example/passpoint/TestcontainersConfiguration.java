@@ -8,6 +8,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.images.builder.ImageFromDockerfile;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.nio.file.Paths;
@@ -48,6 +49,13 @@ public class TestcontainersConfiguration {
     GenericContainer<?> redisContainer() {
         return new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
                 .withExposedPorts(6379);
+    }
+
+    /** docker-compose의 confluentinc/cp-kafka와 동일한 이미지를 사용 */
+    @Bean
+    @ServiceConnection
+    ConfluentKafkaContainer kafkaContainer() {
+        return new ConfluentKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.7.0"));
     }
 
 }
