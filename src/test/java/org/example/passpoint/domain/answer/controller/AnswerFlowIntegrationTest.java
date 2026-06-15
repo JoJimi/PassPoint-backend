@@ -2,6 +2,7 @@ package org.example.passpoint.domain.answer.controller;
 
 import org.example.passpoint.TestcontainersConfiguration;
 import org.example.passpoint.domain.answer.dto.request.AnswerCreateRequest;
+import org.example.passpoint.domain.answer.dto.response.AnswerDetailResponse;
 import org.example.passpoint.domain.answer.dto.response.AnswerResponse;
 import org.example.passpoint.domain.answer.entity.AnswerType;
 import org.example.passpoint.domain.feedback.dto.FeedbackResult;
@@ -30,6 +31,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,14 +44,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 답변 제출 ~ 조회 흐름 통합 테스트 (Testcontainers PostgreSQL + Redis)
- * - POST /api/v1/answers → GET /api/v1/answers/{id}
- * - LLM 호출(FeedbackGenerator)만 모킹하고, DB/Redis는 실제 컨테이너로 검증한다
+ * 답변 제출 ~ 조회 흐름 통합 테스트 (Testcontainers PostgreSQL + Redis + Kafka)
+ * - POST /api/v1/answers(202, PENDING) → Kafka(feedback.requested) → FeedbackWorker → GET /api/v1/answers/{id}(DONE)
+ * - LLM 호출(FeedbackGenerator)만 모킹하고, DB/Redis/Kafka는 실제 컨테이너로 검증한다
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 class AnswerFlowIntegrationTest {
+
+    private static final Set<String> IN_PROGRESS_STATUSES = Set.of("PENDING", "ANALYZING");
 
     @Autowired
     private MockMvc mockMvc;
@@ -107,20 +111,19 @@ class AnswerFlowIntegrationTest {
                         .with(authentication(authOf(user.getId())))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("DONE"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("PENDING"))
                 .andReturn();
 
         AnswerResponse submitResponse = objectMapper.readValue(
                 submitResult.getResponse().getContentAsString(), AnswerResponse.class);
 
-        mockMvc.perform(get("/api/v1/answers/{id}", submitResponse.answerId())
-                        .with(authentication(authOf(user.getId()))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("DONE"))
-                .andExpect(jsonPath("$.answerText").value("HTTPS는 SSL/TLS로 통신을 암호화합니다."))
-                .andExpect(jsonPath("$.feedback.score").value(80))
-                .andExpect(jsonPath("$.feedback.coveredKeywords[0]").value("HTTPS"));
+        AnswerDetailResponse detail = pollUntilTerminal(submitResponse.answerId(), user.getId());
+
+        assertThat(detail.status()).isEqualTo("DONE");
+        assertThat(detail.answerText()).isEqualTo("HTTPS는 SSL/TLS로 통신을 암호화합니다.");
+        assertThat(detail.feedback().score()).isEqualTo(80);
+        assertThat(detail.feedback().coveredKeywords()).contains("HTTPS");
 
         // 답변 제출 시 StudyLogService.recordStudy()가 실제 Redis에 스트릭을 기록했는지 확인
         assertThat(redisTemplate.opsForValue().get("streak:" + user.getId())).isEqualTo("1");
@@ -137,18 +140,17 @@ class AnswerFlowIntegrationTest {
                         .with(authentication(authOf(user.getId())))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("PENDING"))
                 .andReturn();
 
         AnswerResponse submitResponse = objectMapper.readValue(
                 submitResult.getResponse().getContentAsString(), AnswerResponse.class);
 
-        mockMvc.perform(get("/api/v1/answers/{id}", submitResponse.answerId())
-                        .with(authentication(authOf(user.getId()))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("FAILED"))
-                .andExpect(jsonPath("$.feedback").doesNotExist());
+        AnswerDetailResponse detail = pollUntilTerminal(submitResponse.answerId(), user.getId());
+
+        assertThat(detail.status()).isEqualTo("FAILED");
+        assertThat(detail.feedback()).isNull();
     }
 
     @Test
@@ -165,9 +167,6 @@ class AnswerFlowIntegrationTest {
 
     @Test
     void 다른사용자의답변을조회하면_403과CMN006에러코드를반환한다() throws Exception {
-        given(feedbackGenerator.generate(any(), any())).willReturn(
-                new FeedbackResult(80, 80, 80, 80, List.of(), List.of(), List.of()));
-
         User otherUser = userRepository.save(User.builder()
                 .oauthProvider(OAuthProvider.GOOGLE)
                 .oauthId("google-" + UUID.randomUUID())
@@ -182,7 +181,7 @@ class AnswerFlowIntegrationTest {
                         .with(authentication(authOf(user.getId())))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
+                .andExpect(status().isAccepted())
                 .andReturn();
 
         AnswerResponse submitResponse = objectMapper.readValue(
@@ -196,5 +195,26 @@ class AnswerFlowIntegrationTest {
 
     private Authentication authOf(Long userId) {
         return new UsernamePasswordAuthenticationToken(userId, "test-token", Collections.emptyList());
+    }
+
+    /** Kafka(feedback.requested -> FeedbackWorker) 처리가 끝나 DONE/FAILED가 될 때까지 폴링한다 */
+    private AnswerDetailResponse pollUntilTerminal(Long answerId, Long userId) throws Exception {
+        long deadline = System.currentTimeMillis() + 10_000;
+
+        while (true) {
+            MvcResult result = mockMvc.perform(get("/api/v1/answers/{id}", answerId)
+                            .with(authentication(authOf(userId))))
+                    .andReturn();
+            AnswerDetailResponse detail = objectMapper.readValue(
+                    result.getResponse().getContentAsString(), AnswerDetailResponse.class);
+
+            if (!IN_PROGRESS_STATUSES.contains(detail.status())) {
+                return detail;
+            }
+            if (System.currentTimeMillis() > deadline) {
+                throw new AssertionError("답변 처리가 제한 시간 내에 끝나지 않음: status=" + detail.status());
+            }
+            Thread.sleep(200);
+        }
     }
 }

@@ -32,7 +32,7 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
-    implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.springframework.boot:spring-boot-starter-kafka")
 
     implementation("com.google.api-client:google-api-client:2.9.0")
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
@@ -56,7 +56,7 @@ dependencies {
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.testcontainers:elasticsearch")
-    // testImplementation("org.testcontainers:kafka") // 3주차 비동기 파이프라인에서 추가
+    testImplementation("org.testcontainers:kafka")
 
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")

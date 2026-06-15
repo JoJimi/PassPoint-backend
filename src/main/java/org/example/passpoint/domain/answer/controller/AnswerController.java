@@ -27,13 +27,13 @@ public class AnswerController {
 
     private final AnswerService answerService;
 
-    /** 답변 제출 (2주차는 동기로 피드백까지 끝내고 DONE/FAILED 반환) */
-    @Operation(summary = "답변 제출", description = "텍스트 답변을 제출하고 피드백까지 동기로 처리한다. (VOICE는 3주차)")
+    /** 답변 제출 (접수만 하고 즉시 202 반환, 피드백 생성은 FeedbackWorker가 비동기로 처리) */
+    @Operation(summary = "답변 제출", description = "답변을 접수(status=PENDING)하고 즉시 202를 반환한다. 피드백은 비동기로 생성되며 GET /api/v1/answers/{id} 폴링으로 확인한다.")
     @PostMapping("/api/v1/answers")
     public ResponseEntity<AnswerResponse> submit(
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody AnswerCreateRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(answerService.submit(userId, request));
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(answerService.submit(userId, request));
     }
 
     /** 답변 단건 조회 (상태 + 피드백) */

@@ -11,12 +11,19 @@ import org.example.passpoint.domain.feedback.repository.FeedbackRepository;
 import org.example.passpoint.domain.question.entity.Question;
 import org.example.passpoint.domain.user.entity.User;
 import org.example.passpoint.global.exception.answer.AnswerNotFoundException;
+import org.example.passpoint.global.kafka.KafkaPublishEvent;
+import org.example.passpoint.global.kafka.KafkaTopics;
+import org.example.passpoint.global.kafka.event.FeedbackCompletedEvent;
+import org.example.passpoint.global.kafka.event.FeedbackRequestedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 답변 제출의 tx1/tx2 DB 쓰기 담당
- * - LLM(피드백 생성) 호출은 이 서비스를 거치지 않고 AnswerService에서 트랜잭션 밖에서 수행한다
+ * 답변 제출/처리의 DB 쓰기 + 이벤트 발행 담당
+ * - Kafka 발행은 트랜잭션 안에서 KafkaPublishEvent를 publishEvent()로 발행하고,
+ *   AfterCommitKafkaPublisher가 AFTER_COMMIT 시점에 실제로 발행한다 (dual-write 대응)
+ * - LLM(피드백 생성) 호출은 이 서비스를 거치지 않고 트랜잭션 밖에서 수행한다
  */
 @Service
 @RequiredArgsConstructor
@@ -24,8 +31,9 @@ public class AnswerWriteService {
 
     private final AnswerRepository answerRepository;
     private final FeedbackRepository feedbackRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /** tx1: 답변 저장 (status = ANALYZING) */
+    /** tx1: 답변 저장 (status = PENDING) + feedback.requested 발행(AFTER_COMMIT) */
     @Transactional
     public Answer createAnswer(User user, Question question, AnswerType type, String answerText) {
         Answer answer = Answer.builder()
@@ -33,12 +41,35 @@ public class AnswerWriteService {
                 .question(question)
                 .type(type)
                 .answerText(answerText)
-                .status(AnswerStatus.ANALYZING)
+                .status(AnswerStatus.PENDING)
                 .build();
-        return answerRepository.save(answer);
+        answerRepository.save(answer);
+
+        eventPublisher.publishEvent(new KafkaPublishEvent(
+                KafkaTopics.FEEDBACK_REQUESTED, answer.getId().toString(), new FeedbackRequestedEvent(answer.getId())));
+
+        return answer;
     }
 
-    /** tx2: 피드백 저장 + answer.status = DONE */
+    /**
+     * FeedbackWorker 진입 시 status 전이: PENDING -> ANALYZING
+     * - 멱등 체크: 이미 PENDING이 아니면(중복 수신 등) null을 반환해 워커가 건너뛰게 한다
+     * - LLM 호출에 필요한 question을 함께 fetch해 트랜잭션 밖에서도 사용할 수 있게 한다
+     */
+    @Transactional
+    public Answer markAnalyzing(Long answerId) {
+        Answer answer = answerRepository.findByIdWithQuestion(answerId)
+                .orElseThrow(AnswerNotFoundException::new);
+
+        if (answer.getStatus() != AnswerStatus.PENDING) {
+            return null;
+        }
+
+        answer.updateStatus(AnswerStatus.ANALYZING);
+        return answer;
+    }
+
+    /** tx2: 피드백 저장 + answer.status = DONE + feedback.completed 발행(AFTER_COMMIT) */
     @Transactional
     public void completeFeedback(Long answerId, FeedbackResult result) {
         Answer answer = answerRepository.findById(answerId)
@@ -57,6 +88,9 @@ public class AnswerWriteService {
         feedbackRepository.save(feedback);
 
         answer.updateStatus(AnswerStatus.DONE);
+
+        eventPublisher.publishEvent(new KafkaPublishEvent(
+                KafkaTopics.FEEDBACK_COMPLETED, answerId.toString(), new FeedbackCompletedEvent(answerId)));
     }
 
     /** tx2 실패 경로: answer.status = FAILED로 별도 마킹 */

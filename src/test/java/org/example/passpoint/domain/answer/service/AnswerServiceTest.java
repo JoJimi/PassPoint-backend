@@ -6,9 +6,7 @@ import org.example.passpoint.domain.answer.entity.Answer;
 import org.example.passpoint.domain.answer.entity.AnswerStatus;
 import org.example.passpoint.domain.answer.entity.AnswerType;
 import org.example.passpoint.domain.answer.repository.AnswerRepository;
-import org.example.passpoint.domain.feedback.dto.FeedbackResult;
 import org.example.passpoint.domain.feedback.repository.FeedbackRepository;
-import org.example.passpoint.domain.feedback.service.FeedbackGenerator;
 import org.example.passpoint.domain.question.entity.Difficulty;
 import org.example.passpoint.domain.question.entity.Question;
 import org.example.passpoint.domain.question.entity.SubCategory;
@@ -35,12 +33,11 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
 /**
- * AnswerService.submit()의 tx 분리 흐름 및 입력 검증 단위 테스트
+ * AnswerService.submit()의 비동기 접수 흐름(PENDING 저장 + 즉시 반환) 및 입력 검증 단위 테스트
  */
 @ExtendWith(MockitoExtension.class)
 class AnswerServiceTest {
@@ -53,8 +50,6 @@ class AnswerServiceTest {
     private UserRepository userRepository;
     @Mock
     private FeedbackRepository feedbackRepository;
-    @Mock
-    private FeedbackGenerator feedbackGenerator;
     @Mock
     private AnswerWriteService answerWriteService;
     @Mock
@@ -98,62 +93,39 @@ class AnswerServiceTest {
                 .question(question)
                 .type(AnswerType.TEXT)
                 .answerText("HTTPS는 SSL/TLS로 통신을 암호화합니다.")
-                .status(AnswerStatus.ANALYZING)
+                .status(AnswerStatus.PENDING)
                 .build();
         ReflectionTestUtils.setField(answer, "id", ANSWER_ID);
     }
 
     @Test
-    void 답변제출_성공시_DONE상태와피드백저장() {
+    void 답변제출_성공시_PENDING상태로_즉시반환된다() {
         AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "HTTPS는 SSL/TLS로 통신을 암호화합니다.");
-        FeedbackResult feedbackResult = new FeedbackResult(80, 80, 80, 80, List.of("good"), List.of("improve"), List.of("HTTPS"));
 
         given(questionRepository.findById(QUESTION_ID)).willReturn(Optional.of(question));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(answerWriteService.createAnswer(user, question, AnswerType.TEXT, request.answerText())).willReturn(answer);
-        given(feedbackGenerator.generate(question, request.answerText())).willReturn(feedbackResult);
 
         AnswerResponse response = answerService.submit(USER_ID, request);
 
-        assertThat(response.status()).isEqualTo("DONE");
+        assertThat(response.status()).isEqualTo("PENDING");
         assertThat(response.answerId()).isEqualTo(ANSWER_ID);
-        verify(answerWriteService).completeFeedback(ANSWER_ID, feedbackResult);
-        verify(answerWriteService, never()).markFailed(any());
         verify(studyLogService).recordStudy(USER_ID);
     }
 
     @Test
-    void 답변제출_피드백생성실패시_FAILED상태와실패마킹() {
+    void 답변제출_study_log기록은_답변저장후수행된다() {
         AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "HTTPS는 SSL/TLS로 통신을 암호화합니다.");
 
         given(questionRepository.findById(QUESTION_ID)).willReturn(Optional.of(question));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
         given(answerWriteService.createAnswer(user, question, AnswerType.TEXT, request.answerText())).willReturn(answer);
-        given(feedbackGenerator.generate(question, request.answerText())).willThrow(new RuntimeException("LLM 호출 실패"));
-
-        AnswerResponse response = answerService.submit(USER_ID, request);
-
-        assertThat(response.status()).isEqualTo("FAILED");
-        verify(answerWriteService).markFailed(ANSWER_ID);
-        verify(answerWriteService, never()).completeFeedback(any(), any());
-    }
-
-    @Test
-    void 답변제출_study_log기록은_LLM호출보다먼저수행된다() {
-        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "HTTPS는 SSL/TLS로 통신을 암호화합니다.");
-        FeedbackResult feedbackResult = new FeedbackResult(80, 80, 80, 80, List.of(), List.of(), List.of());
-
-        given(questionRepository.findById(QUESTION_ID)).willReturn(Optional.of(question));
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
-        given(answerWriteService.createAnswer(user, question, AnswerType.TEXT, request.answerText())).willReturn(answer);
-        given(feedbackGenerator.generate(question, request.answerText())).willReturn(feedbackResult);
 
         answerService.submit(USER_ID, request);
 
-        InOrder inOrder = inOrder(answerWriteService, studyLogService, feedbackGenerator);
+        InOrder inOrder = inOrder(answerWriteService, studyLogService);
         inOrder.verify(answerWriteService).createAnswer(user, question, AnswerType.TEXT, request.answerText());
         inOrder.verify(studyLogService).recordStudy(USER_ID);
-        inOrder.verify(feedbackGenerator).generate(question, request.answerText());
     }
 
     @Test
