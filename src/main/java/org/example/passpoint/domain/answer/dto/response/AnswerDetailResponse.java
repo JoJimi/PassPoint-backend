@@ -8,13 +8,16 @@ import java.time.LocalDateTime;
 
 /**
  * 답변 단건 조회 응답 (GET /api/v1/answers/{id})
- * - 3주차 폴링이 그대로 사용할 응답 모양: status != DONE이면 feedback은 null
+ * - status != DONE이면 feedback은 null
+ * - VOICE 답변이면 audioUrl(presigned 재생 URL), audioDuration이 채워진다
  */
 public record AnswerDetailResponse(
         Long answerId,
         QuestionInfo question,
         String type,
         String answerText,
+        String audioUrl,
+        Integer audioDuration,
         String status,
         FeedbackResponse feedback,
         LocalDateTime createdAt
@@ -33,12 +36,14 @@ public record AnswerDetailResponse(
         }
     }
 
-    public static AnswerDetailResponse of(Answer answer, FeedbackResponse feedback) {
+    public static AnswerDetailResponse of(Answer answer, FeedbackResponse feedback, String audioUrl) {
         return new AnswerDetailResponse(
                 answer.getId(),
                 QuestionInfo.from(answer.getQuestion()),
                 answer.getType().name(),
                 answer.getAnswerText(),
+                audioUrl,
+                answer.getAudioDuration(),
                 answer.getStatus().name(),
                 feedback,
                 answer.getCreatedAt()

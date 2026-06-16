@@ -18,6 +18,7 @@ import org.example.passpoint.domain.studylog.service.StudyLogService;
 import org.example.passpoint.domain.user.entity.User;
 import org.example.passpoint.domain.user.repository.UserRepository;
 import org.example.passpoint.global.exception.answer.AnswerAccessDeniedException;
+import org.example.passpoint.global.s3.S3AudioStorageService;
 import org.example.passpoint.global.exception.answer.AnswerNotFoundException;
 import org.example.passpoint.global.exception.answer.AnswerTextRequiredException;
 import org.example.passpoint.global.exception.answer.AnswerTextTooLongException;
@@ -51,6 +52,7 @@ public class AnswerService {
     private final FeedbackRepository feedbackRepository;
     private final AnswerWriteService answerWriteService;
     private final StudyLogService studyLogService;
+    private final S3AudioStorageService s3AudioStorageService;
 
     public AnswerResponse submit(Long userId, AnswerCreateRequest request) {
         Question question = questionRepository.findById(request.questionId())
@@ -93,7 +95,11 @@ public class AnswerService {
                 ? feedbackRepository.findByAnswerId(answerId).map(FeedbackResponse::from).orElse(null)
                 : null;
 
-        return AnswerDetailResponse.of(answer, feedback);
+        String audioUrl = (answer.getType() == AnswerType.VOICE && answer.getAudioUrl() != null)
+                ? s3AudioStorageService.generateDownloadPresignedUrl(answer.getAudioUrl())
+                : null;
+
+        return AnswerDetailResponse.of(answer, feedback, audioUrl);
     }
 
     @Transactional(readOnly = true)

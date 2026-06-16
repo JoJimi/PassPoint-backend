@@ -7,6 +7,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
@@ -36,6 +37,22 @@ public class S3AudioStorageService {
         );
 
         return new AudioPresignedUrlResponse(presigned.url().toString(), key);
+    }
+
+    public String generateDownloadPresignedUrl(String key) {
+        GetObjectRequest getRequest = GetObjectRequest.builder()
+                .bucket(s3Properties.bucket())
+                .key(key)
+                .build();
+
+        var presigned = s3Presigner.presignGetObject(
+                GetObjectPresignRequest.builder()
+                        .signatureDuration(Duration.ofMinutes(s3Properties.presignedUrlExpiryMinutes()))
+                        .getObjectRequest(getRequest)
+                        .build()
+        );
+
+        return presigned.url().toString();
     }
 
     public byte[] downloadAudio(String key) {

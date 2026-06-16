@@ -17,8 +17,9 @@ import org.example.passpoint.domain.user.entity.User;
 import org.example.passpoint.domain.user.repository.UserRepository;
 import org.example.passpoint.global.exception.answer.AnswerTextRequiredException;
 import org.example.passpoint.global.exception.answer.AnswerTextTooLongException;
-import org.example.passpoint.global.exception.answer.VoiceNotSupportedException;
+import org.example.passpoint.global.exception.answer.AudioKeyRequiredException;
 import org.example.passpoint.global.exception.question.QuestionNotFoundException;
+import org.example.passpoint.global.s3.S3AudioStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +55,8 @@ class AnswerServiceTest {
     private AnswerWriteService answerWriteService;
     @Mock
     private StudyLogService studyLogService;
+    @Mock
+    private S3AudioStorageService s3AudioStorageService;
 
     @InjectMocks
     private AnswerService answerService;
@@ -100,7 +103,7 @@ class AnswerServiceTest {
 
     @Test
     void 답변제출_성공시_PENDING상태로_즉시반환된다() {
-        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "HTTPS는 SSL/TLS로 통신을 암호화합니다.");
+        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "HTTPS는 SSL/TLS로 통신을 암호화합니다.", null);
 
         given(questionRepository.findById(QUESTION_ID)).willReturn(Optional.of(question));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
@@ -115,7 +118,7 @@ class AnswerServiceTest {
 
     @Test
     void 답변제출_study_log기록은_답변저장후수행된다() {
-        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "HTTPS는 SSL/TLS로 통신을 암호화합니다.");
+        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "HTTPS는 SSL/TLS로 통신을 암호화합니다.", null);
 
         given(questionRepository.findById(QUESTION_ID)).willReturn(Optional.of(question));
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
@@ -130,7 +133,7 @@ class AnswerServiceTest {
 
     @Test
     void 답변제출_질문이존재하지않으면_QuestionNotFoundException() {
-        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "정상적인 답변 텍스트입니다.");
+        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "정상적인 답변 텍스트입니다.", null);
         given(questionRepository.findById(QUESTION_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> answerService.submit(USER_ID, request))
@@ -140,18 +143,21 @@ class AnswerServiceTest {
     }
 
     @Test
-    void 답변제출_타입이VOICE면_VoiceNotSupportedException() {
-        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.VOICE, "음성 답변");
+    void 답변제출_VOICE타입에audioKey없으면_AudioKeyRequiredException() {
+        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.VOICE, null, null);
+
+        given(questionRepository.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
 
         assertThatThrownBy(() -> answerService.submit(USER_ID, request))
-                .isInstanceOf(VoiceNotSupportedException.class);
+                .isInstanceOf(AudioKeyRequiredException.class);
 
-        verifyNoInteractions(questionRepository, userRepository, answerWriteService, studyLogService);
+        verifyNoInteractions(answerWriteService, studyLogService);
     }
 
     @Test
     void 답변제출_답변텍스트가공백이면_AnswerTextRequiredException() {
-        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "   ");
+        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, "   ", null);
 
         assertThatThrownBy(() -> answerService.submit(USER_ID, request))
                 .isInstanceOf(AnswerTextRequiredException.class);
@@ -162,7 +168,7 @@ class AnswerServiceTest {
     @Test
     void 답변제출_답변텍스트가최대길이초과면_AnswerTextTooLongException() {
         String tooLong = "a".repeat(3001);
-        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, tooLong);
+        AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.TEXT, tooLong, null);
 
         assertThatThrownBy(() -> answerService.submit(USER_ID, request))
                 .isInstanceOf(AnswerTextTooLongException.class);
