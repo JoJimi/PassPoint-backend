@@ -5,10 +5,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.passpoint.domain.answer.dto.request.AnswerCreateRequest;
+import org.example.passpoint.domain.answer.dto.request.AudioPresignedUrlRequest;
 import org.example.passpoint.domain.answer.dto.response.AnswerDetailResponse;
 import org.example.passpoint.domain.answer.dto.response.AnswerResponse;
 import org.example.passpoint.domain.answer.dto.response.AnswerSummaryResponse;
+import org.example.passpoint.domain.answer.dto.response.AudioPresignedUrlResponse;
 import org.example.passpoint.domain.answer.service.AnswerService;
+import org.example.passpoint.global.s3.S3AudioStorageService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -17,15 +20,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * 답변 제출 및 이력 조회 API
- */
 @Tag(name = "Answer", description = "답변 제출 및 이력 조회 API")
 @RestController
 @RequiredArgsConstructor
 public class AnswerController {
 
     private final AnswerService answerService;
+    private final S3AudioStorageService s3AudioStorageService;
+
+    /** 음성 업로드용 Presigned URL 발급 */
+    @Operation(summary = "음성 업로드 Presigned URL 발급", description = "앱이 S3에 음성 파일을 직접 업로드하기 위한 PUT용 presigned URL을 발급한다. URL은 5분간 유효하다.")
+    @PostMapping("/api/v1/answers/audio/presignedurl")
+    public AudioPresignedUrlResponse generateAudioPresignedUrl(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody AudioPresignedUrlRequest request) {
+        return s3AudioStorageService.generateUploadPresignedUrl(request.fileExtension());
+    }
 
     /** 답변 제출 (접수만 하고 즉시 202 반환, 피드백 생성은 FeedbackWorker가 비동기로 처리) */
     @Operation(summary = "답변 제출", description = "답변을 접수(status=PENDING)하고 즉시 202를 반환한다. 피드백은 비동기로 생성되며 GET /api/v1/answers/{id} 폴링으로 확인한다.")
