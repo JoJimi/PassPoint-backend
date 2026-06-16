@@ -43,6 +43,7 @@ public enum ErrorCode {
     VOICE_NOT_SUPPORTED_YET(HttpStatus.BAD_REQUEST, "ANSWER002", "음성 답변은 아직 지원하지 않습니다."),
     ANSWER_TEXT_REQUIRED(HttpStatus.BAD_REQUEST, "ANSWER003", "답변 내용을 입력해주세요."),
     ANSWER_TEXT_TOO_LONG(HttpStatus.BAD_REQUEST, "ANSWER004", "답변 내용이 너무 길어요. (최대 3000자)"),
+    AUDIO_KEY_REQUIRED(HttpStatus.BAD_REQUEST, "ANSWER005", "음성 답변의 오디오 키를 입력해주세요."),
 
     // 피드백 (FEEDBACK)
     FEEDBACK_NOT_READY(HttpStatus.NOT_FOUND, "FEEDBACK001", "아직 피드백이 생성되지 않았습니다."),

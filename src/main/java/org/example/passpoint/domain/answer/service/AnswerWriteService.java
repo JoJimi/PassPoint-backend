@@ -13,6 +13,7 @@ import org.example.passpoint.domain.user.entity.User;
 import org.example.passpoint.global.exception.answer.AnswerNotFoundException;
 import org.example.passpoint.global.kafka.KafkaPublishEvent;
 import org.example.passpoint.global.kafka.KafkaTopics;
+import org.example.passpoint.global.kafka.event.AudioUploadedEvent;
 import org.example.passpoint.global.kafka.event.FeedbackCompletedEvent;
 import org.example.passpoint.global.kafka.event.FeedbackRequestedEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -51,9 +52,54 @@ public class AnswerWriteService {
         return answer;
     }
 
+    /** tx1: 음성 답변 저장 (status = PENDING) + audio.uploaded 발행(AFTER_COMMIT) */
+    @Transactional
+    public Answer createVoiceAnswer(User user, Question question, String audioKey) {
+        Answer answer = Answer.builder()
+                .user(user)
+                .question(question)
+                .type(AnswerType.VOICE)
+                .audioUrl(audioKey)
+                .status(AnswerStatus.PENDING)
+                .build();
+        answerRepository.save(answer);
+
+        eventPublisher.publishEvent(new KafkaPublishEvent(
+                KafkaTopics.AUDIO_UPLOADED, answer.getId().toString(), new AudioUploadedEvent(answer.getId())));
+
+        return answer;
+    }
+
+    /** SttWorker 진입 시 status 전이: PENDING -> TRANSCRIBING (멱등 체크 포함) */
+    @Transactional
+    public Answer markTranscribing(Long answerId) {
+        Answer answer = answerRepository.findById(answerId)
+                .orElseThrow(AnswerNotFoundException::new);
+
+        if (answer.getStatus() != AnswerStatus.PENDING) {
+            return null;
+        }
+
+        answer.updateStatus(AnswerStatus.TRANSCRIBING);
+        return answer;
+    }
+
+    /** tx2(STT): 변환 결과 저장 + feedback.requested 발행(AFTER_COMMIT) */
+    @Transactional
+    public void completeTranscription(Long answerId, String transcript) {
+        Answer answer = answerRepository.findById(answerId)
+                .orElseThrow(AnswerNotFoundException::new);
+
+        answer.updateTranscript(transcript);
+
+        eventPublisher.publishEvent(new KafkaPublishEvent(
+                KafkaTopics.FEEDBACK_REQUESTED, answerId.toString(), new FeedbackRequestedEvent(answerId)));
+    }
+
     /**
-     * FeedbackWorker 진입 시 status 전이: PENDING -> ANALYZING
-     * - 멱등 체크: 이미 PENDING이 아니면(중복 수신 등) null을 반환해 워커가 건너뛰게 한다
+     * FeedbackWorker 진입 시 status 전이: PENDING/TRANSCRIBING -> ANALYZING
+     * - TEXT 답변은 PENDING으로, VOICE 답변은 STT 완료 후 TRANSCRIBING으로 합류한다
+     * - 이미 ANALYZING/DONE/FAILED면 null 반환 (멱등)
      * - LLM 호출에 필요한 question을 함께 fetch해 트랜잭션 밖에서도 사용할 수 있게 한다
      */
     @Transactional
@@ -61,7 +107,7 @@ public class AnswerWriteService {
         Answer answer = answerRepository.findByIdWithQuestion(answerId)
                 .orElseThrow(AnswerNotFoundException::new);
 
-        if (answer.getStatus() != AnswerStatus.PENDING) {
+        if (answer.getStatus() != AnswerStatus.PENDING && answer.getStatus() != AnswerStatus.TRANSCRIBING) {
             return null;
         }
 

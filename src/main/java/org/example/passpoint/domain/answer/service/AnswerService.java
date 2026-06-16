@@ -21,7 +21,7 @@ import org.example.passpoint.global.exception.answer.AnswerAccessDeniedException
 import org.example.passpoint.global.exception.answer.AnswerNotFoundException;
 import org.example.passpoint.global.exception.answer.AnswerTextRequiredException;
 import org.example.passpoint.global.exception.answer.AnswerTextTooLongException;
-import org.example.passpoint.global.exception.answer.VoiceNotSupportedException;
+import org.example.passpoint.global.exception.answer.AudioKeyRequiredException;
 import org.example.passpoint.global.exception.question.QuestionNotFoundException;
 import org.example.passpoint.global.exception.user.UserNotFoundException;
 import org.springframework.data.domain.Page;
@@ -53,20 +53,30 @@ public class AnswerService {
     private final StudyLogService studyLogService;
 
     public AnswerResponse submit(Long userId, AnswerCreateRequest request) {
-        validateAnswerText(request.type(), request.answerText());
-
         Question question = questionRepository.findById(request.questionId())
                 .orElseThrow(QuestionNotFoundException::new);
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
 
-        // tx1: 답변 저장 (status = PENDING) + feedback.requested 발행(AFTER_COMMIT)
-        Answer answer = answerWriteService.createAnswer(user, question, request.type(), request.answerText());
+        Answer answer;
+        if (request.type() == AnswerType.VOICE) {
+            if (!StringUtils.hasText(request.audioKey())) {
+                throw new AudioKeyRequiredException();
+            }
+            // tx1: 음성 답변 저장(PENDING) + audio.uploaded 발행(AFTER_COMMIT) → SttWorker가 처리
+            answer = answerWriteService.createVoiceAnswer(user, question, request.audioKey());
+        } else {
+            if (!StringUtils.hasText(request.answerText())) {
+                throw new AnswerTextRequiredException();
+            }
+            if (request.answerText().length() > ANSWER_TEXT_MAX_LENGTH) {
+                throw new AnswerTextTooLongException();
+            }
+            // tx1: 텍스트 답변 저장(PENDING) + feedback.requested 발행(AFTER_COMMIT) → FeedbackWorker가 처리
+            answer = answerWriteService.createAnswer(user, question, request.type(), request.answerText());
+        }
 
-        // 답변 제출 성공: study_logs 갱신 + Redis 스트릭/오늘 풀이 수 갱신
         studyLogService.recordStudy(userId);
-
-        // 실제 처리(LLM 호출 등)는 FeedbackWorker가 feedback.requested를 소비해 비동기로 수행한다
         return AnswerResponse.of(answer);
     }
 
@@ -96,18 +106,6 @@ public class AnswerService {
         questionRepository.findById(questionId)
                 .orElseThrow(QuestionNotFoundException::new);
         return toSummaryPage(answerRepository.findByUserIdAndQuestionId(userId, questionId, pageable));
-    }
-
-    private void validateAnswerText(AnswerType type, String answerText) {
-        if (type == AnswerType.VOICE) {
-            throw new VoiceNotSupportedException();
-        }
-        if (!StringUtils.hasText(answerText)) {
-            throw new AnswerTextRequiredException();
-        }
-        if (answerText.length() > ANSWER_TEXT_MAX_LENGTH) {
-            throw new AnswerTextTooLongException();
-        }
     }
 
     private Page<AnswerSummaryResponse> toSummaryPage(Page<Answer> answers) {

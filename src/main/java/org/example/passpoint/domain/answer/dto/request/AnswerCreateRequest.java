@@ -10,6 +10,7 @@ import org.example.passpoint.domain.answer.entity.AnswerType;
 public record AnswerCreateRequest(
         @NotNull Long questionId,
         @NotNull AnswerType type,
-        String answerText
+        String answerText,  // TEXT 타입
+        String audioKey     // VOICE 타입: presigned URL 발급 시 받은 S3 키
 ) {
 }

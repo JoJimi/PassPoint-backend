@@ -3,6 +3,8 @@ package org.example.passpoint.global.s3;
 import lombok.RequiredArgsConstructor;
 import org.example.passpoint.domain.answer.dto.response.AudioPresignedUrlResponse;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -15,6 +17,7 @@ import java.util.UUID;
 public class S3AudioStorageService {
 
     private final S3Presigner s3Presigner;
+    private final S3Client s3Client;
     private final S3Properties s3Properties;
 
     public AudioPresignedUrlResponse generateUploadPresignedUrl(String fileExtension) {
@@ -33,5 +36,14 @@ public class S3AudioStorageService {
         );
 
         return new AudioPresignedUrlResponse(presigned.url().toString(), key);
+    }
+
+    public byte[] downloadAudio(String key) {
+        return s3Client.getObjectAsBytes(
+                GetObjectRequest.builder()
+                        .bucket(s3Properties.bucket())
+                        .key(key)
+                        .build()
+        ).asByteArray();
     }
 }
