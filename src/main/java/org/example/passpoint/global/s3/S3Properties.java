@@ -10,6 +10,7 @@ public record S3Properties(
         String accessKey,
         String secretKey,
         boolean pathStyle,
-        int presignedUrlExpiryMinutes
+        int presignedUrlExpiryMinutes,
+        String publicEndpoint  // 에뮬레이터용(10.0.2.2:9000), 미설정이면 endpoint 그대로 사용
 ) {
 }

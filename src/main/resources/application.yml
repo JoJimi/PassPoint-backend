@@ -76,3 +76,4 @@ cloud:
       secret-key: ${S3_SECRET_KEY}
       path-style: ${S3_PATH_STYLE}
       presigned-url-expiry-minutes: 5
+      public-endpoint: ${S3_PUBLIC_ENDPOINT:}  # 실디바이스용
