@@ -34,6 +34,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
@@ -232,5 +233,50 @@ class AnswerServiceTest {
                 .contains(SubCategory.SPRING_CORE, SubCategory.SPRING_MVC)
                 .doesNotContain(SubCategory.HTTP);
         verify(answerRepository, never()).findByUserIdAndStatusNot(any(), any(), any());
+    }
+
+    @Test
+    void 내답변목록조회_score내림차순정렬이면_score전용쿼리를unsorted페이지로호출한다() {
+        Pageable scoreSortPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.desc("score")));
+        given(answerRepository.findByUserIdAndStatusNotOrderByScoreDesc(USER_ID, AnswerStatus.FAILED, PageRequest.of(0, 20)))
+                .willReturn(new PageImpl<>(List.of(answer)));
+        given(feedbackRepository.findByAnswerIdIn(List.of(ANSWER_ID)))
+                .willReturn(Collections.emptyList());
+
+        Page<AnswerSummaryResponse> result = answerService.getMyAnswers(USER_ID, null, scoreSortPageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(answerRepository, never()).findByUserIdAndStatusNot(any(), any(), any());
+        verify(answerRepository, never()).findByUserIdAndStatusNotOrderByScoreAsc(any(), any(), any());
+    }
+
+    @Test
+    void 내답변목록조회_score오름차순정렬이면_score전용쿼리를unsorted페이지로호출한다() {
+        Pageable scoreSortPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("score")));
+        given(answerRepository.findByUserIdAndStatusNotOrderByScoreAsc(USER_ID, AnswerStatus.FAILED, PageRequest.of(0, 20)))
+                .willReturn(new PageImpl<>(List.of(answer)));
+        given(feedbackRepository.findByAnswerIdIn(List.of(ANSWER_ID)))
+                .willReturn(Collections.emptyList());
+
+        Page<AnswerSummaryResponse> result = answerService.getMyAnswers(USER_ID, null, scoreSortPageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(answerRepository, never()).findByUserIdAndStatusNot(any(), any(), any());
+        verify(answerRepository, never()).findByUserIdAndStatusNotOrderByScoreDesc(any(), any(), any());
+    }
+
+    @Test
+    void 내답변목록조회_카테고리와score정렬을함께주면_카테고리용score전용쿼리를호출한다() {
+        Pageable scoreSortPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.desc("score")));
+        given(answerRepository.findByUserIdAndQuestionSubCategoryInAndStatusNotOrderByScoreDesc(eq(USER_ID), any(), eq(AnswerStatus.FAILED), eq(PageRequest.of(0, 20))))
+                .willReturn(new PageImpl<>(List.of(answer)));
+        given(feedbackRepository.findByAnswerIdIn(List.of(ANSWER_ID)))
+                .willReturn(Collections.emptyList());
+
+        Page<AnswerSummaryResponse> result = answerService.getMyAnswers(USER_ID, MainCategory.WEB, scoreSortPageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(answerRepository, never()).findByUserIdAndStatusNotOrderByScoreDesc(any(), any(), any());
+        verify(answerRepository, never()).findByUserIdAndQuestionSubCategoryInAndStatusNot(any(), any(), any(), any());
     }
 }

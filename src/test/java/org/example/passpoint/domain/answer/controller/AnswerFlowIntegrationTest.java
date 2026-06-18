@@ -4,7 +4,10 @@ import org.example.passpoint.TestcontainersConfiguration;
 import org.example.passpoint.domain.answer.dto.request.AnswerCreateRequest;
 import org.example.passpoint.domain.answer.dto.response.AnswerDetailResponse;
 import org.example.passpoint.domain.answer.dto.response.AnswerResponse;
+import org.example.passpoint.domain.answer.entity.Answer;
+import org.example.passpoint.domain.answer.entity.AnswerStatus;
 import org.example.passpoint.domain.answer.entity.AnswerType;
+import org.example.passpoint.domain.answer.repository.AnswerRepository;
 import org.example.passpoint.domain.feedback.dto.FeedbackResult;
 import org.example.passpoint.domain.feedback.service.FeedbackGenerator;
 import org.example.passpoint.domain.question.entity.Difficulty;
@@ -94,6 +97,9 @@ class AnswerFlowIntegrationTest {
 
     @Autowired
     private S3Client s3Client;
+
+    @Autowired
+    private AnswerRepository answerRepository;
 
     @MockitoBean
     private FeedbackGenerator feedbackGenerator;
@@ -222,6 +228,44 @@ class AnswerFlowIntegrationTest {
                 .andExpect(jsonPath("$.code").value("CMN006"));
     }
 
+    // ─── 답변 목록 정렬 (score) ──────────────────────────────────────────────
+
+    @Test
+    void 답변목록을score로정렬하면_점수순으로반환되고_채점중인답변은항상마지막에온다() throws Exception {
+        given(feedbackGenerator.generate(any(), any())).willReturn(
+                new FeedbackResult(90, 90, 90, 90, List.of(), List.of(), List.of()));
+        Long highScoreAnswerId = submitTextAnswerAndWaitDone("점수가 높은 답변");
+
+        given(feedbackGenerator.generate(any(), any())).willReturn(
+                new FeedbackResult(50, 50, 50, 50, List.of(), List.of(), List.of()));
+        Long lowScoreAnswerId = submitTextAnswerAndWaitDone("점수가 낮은 답변");
+
+        // FeedbackWorker를 거치지 않고 직접 저장해서 채점이 끝나지 않은(score 없는) 상태로 둔다
+        Long inProgressAnswerId = answerRepository.save(Answer.builder()
+                .user(user)
+                .question(question)
+                .type(AnswerType.TEXT)
+                .answerText("채점 중인 답변")
+                .status(AnswerStatus.ANALYZING)
+                .build()).getId();
+
+        mockMvc.perform(get("/api/v1/answers")
+                        .with(authentication(authOf(user.getId())))
+                        .param("sort", "score,desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].answerId").value(highScoreAnswerId))
+                .andExpect(jsonPath("$.content[1].answerId").value(lowScoreAnswerId))
+                .andExpect(jsonPath("$.content[2].answerId").value(inProgressAnswerId));
+
+        mockMvc.perform(get("/api/v1/answers")
+                        .with(authentication(authOf(user.getId())))
+                        .param("sort", "score,asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].answerId").value(lowScoreAnswerId))
+                .andExpect(jsonPath("$.content[1].answerId").value(highScoreAnswerId))
+                .andExpect(jsonPath("$.content[2].answerId").value(inProgressAnswerId));
+    }
+
     // ─── 음성 답변 흐름 (MinIO 실제 연동 + STT mock) ─────────────────────────
 
     @Test
@@ -316,6 +360,24 @@ class AnswerFlowIntegrationTest {
 
     private Authentication authOf(Long userId) {
         return new UsernamePasswordAuthenticationToken(userId, "test-token", Collections.emptyList());
+    }
+
+    /** 텍스트 답변을 제출하고 DONE/FAILED가 될 때까지 기다린 뒤 answerId를 반환한다 */
+    private Long submitTextAnswerAndWaitDone(String answerText) throws Exception {
+        AnswerCreateRequest request = new AnswerCreateRequest(question.getId(), AnswerType.TEXT, answerText, null);
+
+        MvcResult submitResult = mockMvc.perform(post("/api/v1/answers")
+                        .with(authentication(authOf(user.getId())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isAccepted())
+                .andReturn();
+
+        AnswerResponse submitResponse = objectMapper.readValue(
+                submitResult.getResponse().getContentAsString(), AnswerResponse.class);
+
+        pollUntilTerminal(submitResponse.answerId(), user.getId());
+        return submitResponse.answerId();
     }
 
     /** DONE/FAILED 가 될 때까지 GET /answers/{id} 를 폴링한다 (최대 10초) */

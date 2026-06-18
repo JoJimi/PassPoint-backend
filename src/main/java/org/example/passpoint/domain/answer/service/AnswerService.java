@@ -28,7 +28,9 @@ import org.example.passpoint.global.exception.answer.AudioKeyRequiredException;
 import org.example.passpoint.global.exception.question.QuestionNotFoundException;
 import org.example.passpoint.global.exception.user.UserNotFoundException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -113,14 +115,36 @@ public class AnswerService {
     /** category가 없으면 전체, 있으면 해당 대분류에 속한 질문의 답변만 조회 (FAILED 제외) */
     @Transactional(readOnly = true)
     public Page<AnswerSummaryResponse> getMyAnswers(Long userId, MainCategory category, Pageable pageable) {
-        if (category == null) {
-            return toSummaryPage(answerRepository.findByUserIdAndStatusNot(userId, AnswerStatus.FAILED, pageable));
+        return toSummaryPage(findAnswers(userId, category, pageable));
+    }
+
+    /**
+     * score는 Answer가 아닌 Feedback 소유 필드라 Pageable.sort로 바로 정렬할 수 없다.
+     * sort=score 요청이면 채점 미완료(score 없음) 답변이 항상 마지막에 오는 전용 쿼리로 분기한다.
+     */
+    private Page<Answer> findAnswers(Long userId, MainCategory category, Pageable pageable) {
+        List<SubCategory> subCategories = (category == null) ? null
+                : Arrays.stream(SubCategory.values())
+                        .filter(subCategory -> subCategory.getMainCategory() == category)
+                        .toList();
+
+        Sort.Order scoreOrder = pageable.getSort().getOrderFor("score");
+        if (scoreOrder == null) {
+            return (subCategories == null)
+                    ? answerRepository.findByUserIdAndStatusNot(userId, AnswerStatus.FAILED, pageable)
+                    : answerRepository.findByUserIdAndQuestionSubCategoryInAndStatusNot(userId, subCategories, AnswerStatus.FAILED, pageable);
         }
 
-        List<SubCategory> subCategories = Arrays.stream(SubCategory.values())
-                .filter(subCategory -> subCategory.getMainCategory() == category)
-                .toList();
-        return toSummaryPage(answerRepository.findByUserIdAndQuestionSubCategoryInAndStatusNot(userId, subCategories, AnswerStatus.FAILED, pageable));
+        Pageable unsortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        boolean descending = scoreOrder.isDescending();
+        if (subCategories == null) {
+            return descending
+                    ? answerRepository.findByUserIdAndStatusNotOrderByScoreDesc(userId, AnswerStatus.FAILED, unsortedPageable)
+                    : answerRepository.findByUserIdAndStatusNotOrderByScoreAsc(userId, AnswerStatus.FAILED, unsortedPageable);
+        }
+        return descending
+                ? answerRepository.findByUserIdAndQuestionSubCategoryInAndStatusNotOrderByScoreDesc(userId, subCategories, AnswerStatus.FAILED, unsortedPageable)
+                : answerRepository.findByUserIdAndQuestionSubCategoryInAndStatusNotOrderByScoreAsc(userId, subCategories, AnswerStatus.FAILED, unsortedPageable);
     }
 
     /** FAILED 제외 */
