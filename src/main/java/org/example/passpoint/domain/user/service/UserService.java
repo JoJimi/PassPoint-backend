@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.passpoint.domain.answer.repository.AnswerRepository;
 import org.example.passpoint.domain.feedback.repository.FeedbackRepository;
 import org.example.passpoint.domain.studylog.service.StudyLogService;
+import org.example.passpoint.domain.user.dto.UserProfileUpdateRequest;
 import org.example.passpoint.domain.user.dto.UserResponse;
 import org.example.passpoint.domain.user.dto.UserStatsResponse;
 import org.example.passpoint.domain.user.entity.User;
@@ -25,6 +26,15 @@ public class UserService {
     public UserResponse getMyProfile(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
+        return UserResponse.from(user);
+    }
+
+    /** 프로필 수정 (닉네임, 상태 메시지) - 부분 수정: 보내지 않은 필드는 유지 */
+    @Transactional
+    public UserResponse updateProfile(Long userId, UserProfileUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+        user.updateProfile(request.nickname(), request.statusMessage());
         return UserResponse.from(user);
     }
 
