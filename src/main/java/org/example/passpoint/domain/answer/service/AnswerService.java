@@ -12,7 +12,9 @@ import org.example.passpoint.domain.answer.repository.AnswerRepository;
 import org.example.passpoint.domain.feedback.dto.response.FeedbackResponse;
 import org.example.passpoint.domain.feedback.entity.Feedback;
 import org.example.passpoint.domain.feedback.repository.FeedbackRepository;
+import org.example.passpoint.domain.question.entity.MainCategory;
 import org.example.passpoint.domain.question.entity.Question;
+import org.example.passpoint.domain.question.entity.SubCategory;
 import org.example.passpoint.domain.question.repository.QuestionRepository;
 import org.example.passpoint.domain.studylog.service.StudyLogService;
 import org.example.passpoint.domain.user.entity.User;
@@ -31,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -55,18 +58,11 @@ public class AnswerService {
     private final S3AudioStorageService s3AudioStorageService;
 
     public AnswerResponse submit(Long userId, AnswerCreateRequest request) {
-        Question question = questionRepository.findById(request.questionId())
-                .orElseThrow(QuestionNotFoundException::new);
-        User user = userRepository.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
-
-        Answer answer;
+        // 입력값 검증을 레포지토리 조회보다 먼저 한다 (잘못된 요청에 불필요한 DB 조회를 하지 않도록)
         if (request.type() == AnswerType.VOICE) {
             if (!StringUtils.hasText(request.audioKey())) {
                 throw new AudioKeyRequiredException();
             }
-            // tx1: 음성 답변 저장(PENDING) + audio.uploaded 발행(AFTER_COMMIT) → SttWorker가 처리
-            answer = answerWriteService.createVoiceAnswer(user, question, request.audioKey());
         } else {
             if (!StringUtils.hasText(request.answerText())) {
                 throw new AnswerTextRequiredException();
@@ -74,6 +70,18 @@ public class AnswerService {
             if (request.answerText().length() > ANSWER_TEXT_MAX_LENGTH) {
                 throw new AnswerTextTooLongException();
             }
+        }
+
+        Question question = questionRepository.findById(request.questionId())
+                .orElseThrow(QuestionNotFoundException::new);
+        User user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        Answer answer;
+        if (request.type() == AnswerType.VOICE) {
+            // tx1: 음성 답변 저장(PENDING) + audio.uploaded 발행(AFTER_COMMIT) → SttWorker가 처리
+            answer = answerWriteService.createVoiceAnswer(user, question, request.audioKey());
+        } else {
             // tx1: 텍스트 답변 저장(PENDING) + feedback.requested 발행(AFTER_COMMIT) → FeedbackWorker가 처리
             answer = answerWriteService.createAnswer(user, question, request.type(), request.answerText());
         }
@@ -102,9 +110,17 @@ public class AnswerService {
         return AnswerDetailResponse.of(answer, feedback, audioUrl);
     }
 
+    /** category가 없으면 전체, 있으면 해당 대분류에 속한 질문의 답변만 조회 */
     @Transactional(readOnly = true)
-    public Page<AnswerSummaryResponse> getMyAnswers(Long userId, Pageable pageable) {
-        return toSummaryPage(answerRepository.findByUserId(userId, pageable));
+    public Page<AnswerSummaryResponse> getMyAnswers(Long userId, MainCategory category, Pageable pageable) {
+        if (category == null) {
+            return toSummaryPage(answerRepository.findByUserId(userId, pageable));
+        }
+
+        List<SubCategory> subCategories = Arrays.stream(SubCategory.values())
+                .filter(subCategory -> subCategory.getMainCategory() == category)
+                .toList();
+        return toSummaryPage(answerRepository.findByUserIdAndQuestionSubCategoryIn(userId, subCategories, pageable));
     }
 
     @Transactional(readOnly = true)

@@ -2,12 +2,14 @@ package org.example.passpoint.domain.answer.service;
 
 import org.example.passpoint.domain.answer.dto.request.AnswerCreateRequest;
 import org.example.passpoint.domain.answer.dto.response.AnswerResponse;
+import org.example.passpoint.domain.answer.dto.response.AnswerSummaryResponse;
 import org.example.passpoint.domain.answer.entity.Answer;
 import org.example.passpoint.domain.answer.entity.AnswerStatus;
 import org.example.passpoint.domain.answer.entity.AnswerType;
 import org.example.passpoint.domain.answer.repository.AnswerRepository;
 import org.example.passpoint.domain.feedback.repository.FeedbackRepository;
 import org.example.passpoint.domain.question.entity.Difficulty;
+import org.example.passpoint.domain.question.entity.MainCategory;
 import org.example.passpoint.domain.question.entity.Question;
 import org.example.passpoint.domain.question.entity.SubCategory;
 import org.example.passpoint.domain.question.repository.QuestionRepository;
@@ -23,12 +25,18 @@ import org.example.passpoint.global.s3.S3AudioStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -146,13 +154,10 @@ class AnswerServiceTest {
     void 답변제출_VOICE타입에audioKey없으면_AudioKeyRequiredException() {
         AnswerCreateRequest request = new AnswerCreateRequest(QUESTION_ID, AnswerType.VOICE, null, null);
 
-        given(questionRepository.findById(QUESTION_ID)).willReturn(Optional.of(question));
-        given(userRepository.findById(USER_ID)).willReturn(Optional.of(user));
-
         assertThatThrownBy(() -> answerService.submit(USER_ID, request))
                 .isInstanceOf(AudioKeyRequiredException.class);
 
-        verifyNoInteractions(answerWriteService, studyLogService);
+        verifyNoInteractions(questionRepository, userRepository, answerWriteService, studyLogService);
     }
 
     @Test
@@ -174,5 +179,58 @@ class AnswerServiceTest {
                 .isInstanceOf(AnswerTextTooLongException.class);
 
         verifyNoInteractions(questionRepository, userRepository, answerWriteService, studyLogService);
+    }
+
+    @Test
+    void 내답변목록조회_카테고리없으면_전체조회한다() {
+        Pageable pageable = PageRequest.of(0, 20);
+        given(answerRepository.findByUserId(USER_ID, pageable))
+                .willReturn(new PageImpl<>(List.of(answer)));
+        given(feedbackRepository.findByAnswerIdIn(List.of(ANSWER_ID)))
+                .willReturn(Collections.emptyList());
+
+        Page<AnswerSummaryResponse> result = answerService.getMyAnswers(USER_ID, null, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).mainCategory()).isEqualTo("WEB");
+        verify(answerRepository, never()).findByUserIdAndQuestionSubCategoryIn(any(), any(), any());
+    }
+
+    @Test
+    void 내답변목록조회_카테고리있으면_해당대분류subCategory로필터링한다() {
+        Question springQuestion = Question.builder()
+                .subCategory(SubCategory.SPRING_CORE)
+                .difficulty(Difficulty.MEDIUM)
+                .title("Spring Bean 생명주기를 설명하시오")
+                .content("Bean 생명주기를 설명하시오.")
+                .build();
+        ReflectionTestUtils.setField(springQuestion, "id", 2L);
+
+        Answer springAnswer = Answer.builder()
+                .user(user)
+                .question(springQuestion)
+                .type(AnswerType.TEXT)
+                .answerText("Bean은 생성-의존성주입-초기화-소멸 순서로 관리됩니다.")
+                .status(AnswerStatus.DONE)
+                .build();
+        ReflectionTestUtils.setField(springAnswer, "id", 200L);
+
+        Pageable pageable = PageRequest.of(0, 20);
+        given(answerRepository.findByUserIdAndQuestionSubCategoryIn(eq(USER_ID), any(), eq(pageable)))
+                .willReturn(new PageImpl<>(List.of(springAnswer)));
+        given(feedbackRepository.findByAnswerIdIn(List.of(200L)))
+                .willReturn(Collections.emptyList());
+
+        Page<AnswerSummaryResponse> result = answerService.getMyAnswers(USER_ID, MainCategory.SPRING, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).mainCategory()).isEqualTo("SPRING");
+
+        ArgumentCaptor<List<SubCategory>> subCategoriesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(answerRepository).findByUserIdAndQuestionSubCategoryIn(eq(USER_ID), subCategoriesCaptor.capture(), eq(pageable));
+        assertThat(subCategoriesCaptor.getValue())
+                .contains(SubCategory.SPRING_CORE, SubCategory.SPRING_MVC)
+                .doesNotContain(SubCategory.HTTP);
+        verify(answerRepository, never()).findByUserId(any(), any());
     }
 }
