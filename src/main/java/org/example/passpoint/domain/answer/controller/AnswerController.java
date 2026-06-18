@@ -11,6 +11,7 @@ import org.example.passpoint.domain.answer.dto.response.AnswerResponse;
 import org.example.passpoint.domain.answer.dto.response.AnswerSummaryResponse;
 import org.example.passpoint.domain.answer.dto.response.AudioPresignedUrlResponse;
 import org.example.passpoint.domain.answer.service.AnswerService;
+import org.example.passpoint.domain.question.entity.MainCategory;
 import org.example.passpoint.global.s3.S3AudioStorageService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,13 +56,14 @@ public class AnswerController {
         return answerService.getAnswerDetail(userId, id);
     }
 
-    /** 내 답변 목록 (페이징) */
-    @Operation(summary = "내 답변 목록", description = "내가 제출한 답변 이력을 페이징으로 조회한다.")
+    /** 내 답변 목록 (페이징, 카테고리 필터 가능) */
+    @Operation(summary = "내 답변 목록", description = "내가 제출한 답변 이력을 페이징으로 조회한다. category로 대분류 필터링 가능.")
     @GetMapping("/api/v1/answers")
     public Page<AnswerSummaryResponse> getMyAnswers(
             @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) MainCategory category,
             @PageableDefault(size = 20) Pageable pageable) {
-        return answerService.getMyAnswers(userId, pageable);
+        return answerService.getMyAnswers(userId, category, pageable);
     }
 
     /** 특정 질문에 대한 내 답변 이력 (페이징) */
