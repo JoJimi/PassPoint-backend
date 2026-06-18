@@ -1,6 +1,7 @@
 package org.example.passpoint.domain.user.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.passpoint.domain.answer.entity.AnswerStatus;
 import org.example.passpoint.domain.answer.repository.AnswerRepository;
 import org.example.passpoint.domain.feedback.repository.FeedbackRepository;
 import org.example.passpoint.domain.studylog.service.StudyLogService;
@@ -40,7 +41,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserStatsResponse getMyStats(Long userId) {
-        long totalAnswered = answerRepository.countByUserId(userId);
+        long totalAnswered = answerRepository.countByUserIdAndStatusNot(userId, AnswerStatus.FAILED);
         Double averageScore = feedbackRepository.findAverageScoreByUserId(userId);
         Integer bestScore = feedbackRepository.findBestScoreByUserId(userId);
 
