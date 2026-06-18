@@ -184,7 +184,7 @@ class AnswerServiceTest {
     @Test
     void 내답변목록조회_카테고리없으면_전체조회한다() {
         Pageable pageable = PageRequest.of(0, 20);
-        given(answerRepository.findByUserId(USER_ID, pageable))
+        given(answerRepository.findByUserIdAndStatusNot(USER_ID, AnswerStatus.FAILED, pageable))
                 .willReturn(new PageImpl<>(List.of(answer)));
         given(feedbackRepository.findByAnswerIdIn(List.of(ANSWER_ID)))
                 .willReturn(Collections.emptyList());
@@ -193,7 +193,7 @@ class AnswerServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).mainCategory()).isEqualTo("WEB");
-        verify(answerRepository, never()).findByUserIdAndQuestionSubCategoryIn(any(), any(), any());
+        verify(answerRepository, never()).findByUserIdAndQuestionSubCategoryInAndStatusNot(any(), any(), any(), any());
     }
 
     @Test
@@ -216,7 +216,7 @@ class AnswerServiceTest {
         ReflectionTestUtils.setField(springAnswer, "id", 200L);
 
         Pageable pageable = PageRequest.of(0, 20);
-        given(answerRepository.findByUserIdAndQuestionSubCategoryIn(eq(USER_ID), any(), eq(pageable)))
+        given(answerRepository.findByUserIdAndQuestionSubCategoryInAndStatusNot(eq(USER_ID), any(), eq(AnswerStatus.FAILED), eq(pageable)))
                 .willReturn(new PageImpl<>(List.of(springAnswer)));
         given(feedbackRepository.findByAnswerIdIn(List.of(200L)))
                 .willReturn(Collections.emptyList());
@@ -227,10 +227,10 @@ class AnswerServiceTest {
         assertThat(result.getContent().get(0).mainCategory()).isEqualTo("SPRING");
 
         ArgumentCaptor<List<SubCategory>> subCategoriesCaptor = ArgumentCaptor.forClass(List.class);
-        verify(answerRepository).findByUserIdAndQuestionSubCategoryIn(eq(USER_ID), subCategoriesCaptor.capture(), eq(pageable));
+        verify(answerRepository).findByUserIdAndQuestionSubCategoryInAndStatusNot(eq(USER_ID), subCategoriesCaptor.capture(), eq(AnswerStatus.FAILED), eq(pageable));
         assertThat(subCategoriesCaptor.getValue())
                 .contains(SubCategory.SPRING_CORE, SubCategory.SPRING_MVC)
                 .doesNotContain(SubCategory.HTTP);
-        verify(answerRepository, never()).findByUserId(any(), any());
+        verify(answerRepository, never()).findByUserIdAndStatusNot(any(), any(), any());
     }
 }

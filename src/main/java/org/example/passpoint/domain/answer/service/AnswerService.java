@@ -110,24 +110,25 @@ public class AnswerService {
         return AnswerDetailResponse.of(answer, feedback, audioUrl);
     }
 
-    /** category가 없으면 전체, 있으면 해당 대분류에 속한 질문의 답변만 조회 */
+    /** category가 없으면 전체, 있으면 해당 대분류에 속한 질문의 답변만 조회 (FAILED 제외) */
     @Transactional(readOnly = true)
     public Page<AnswerSummaryResponse> getMyAnswers(Long userId, MainCategory category, Pageable pageable) {
         if (category == null) {
-            return toSummaryPage(answerRepository.findByUserId(userId, pageable));
+            return toSummaryPage(answerRepository.findByUserIdAndStatusNot(userId, AnswerStatus.FAILED, pageable));
         }
 
         List<SubCategory> subCategories = Arrays.stream(SubCategory.values())
                 .filter(subCategory -> subCategory.getMainCategory() == category)
                 .toList();
-        return toSummaryPage(answerRepository.findByUserIdAndQuestionSubCategoryIn(userId, subCategories, pageable));
+        return toSummaryPage(answerRepository.findByUserIdAndQuestionSubCategoryInAndStatusNot(userId, subCategories, AnswerStatus.FAILED, pageable));
     }
 
+    /** FAILED 제외 */
     @Transactional(readOnly = true)
     public Page<AnswerSummaryResponse> getMyAnswersByQuestion(Long userId, Long questionId, Pageable pageable) {
         questionRepository.findById(questionId)
                 .orElseThrow(QuestionNotFoundException::new);
-        return toSummaryPage(answerRepository.findByUserIdAndQuestionId(userId, questionId, pageable));
+        return toSummaryPage(answerRepository.findByUserIdAndQuestionIdAndStatusNot(userId, questionId, AnswerStatus.FAILED, pageable));
     }
 
     private Page<AnswerSummaryResponse> toSummaryPage(Page<Answer> answers) {

@@ -17,15 +17,16 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
     @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.id = :id")
     Optional<Answer> findByIdWithQuestion(@Param("id") Long id);
 
-    @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.user.id = :userId")
-    Page<Answer> findByUserId(@Param("userId") Long userId, Pageable pageable);
+    // 이력 목록에서는 FAILED(처리 실패) 답변을 노출하지 않는다 (GET /answers/{id} 단건 조회는 폴링 계약상 FAILED도 그대로 보여줘야 하므로 영향 없음)
+    @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.user.id = :userId AND a.status <> :excludedStatus")
+    Page<Answer> findByUserIdAndStatusNot(@Param("userId") Long userId, @Param("excludedStatus") AnswerStatus excludedStatus, Pageable pageable);
 
     // mainCategory는 Question에 저장되지 않으므로, 해당 대분류에 속한 subCategory 목록으로 필터링한다
-    @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.user.id = :userId AND a.question.subCategory IN :subCategories")
-    Page<Answer> findByUserIdAndQuestionSubCategoryIn(@Param("userId") Long userId, @Param("subCategories") List<SubCategory> subCategories, Pageable pageable);
+    @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.user.id = :userId AND a.question.subCategory IN :subCategories AND a.status <> :excludedStatus")
+    Page<Answer> findByUserIdAndQuestionSubCategoryInAndStatusNot(@Param("userId") Long userId, @Param("subCategories") List<SubCategory> subCategories, @Param("excludedStatus") AnswerStatus excludedStatus, Pageable pageable);
 
-    @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.user.id = :userId AND a.question.id = :questionId")
-    Page<Answer> findByUserIdAndQuestionId(@Param("userId") Long userId, @Param("questionId") Long questionId, Pageable pageable);
+    @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.user.id = :userId AND a.question.id = :questionId AND a.status <> :excludedStatus")
+    Page<Answer> findByUserIdAndQuestionIdAndStatusNot(@Param("userId") Long userId, @Param("questionId") Long questionId, @Param("excludedStatus") AnswerStatus excludedStatus, Pageable pageable);
 
     // FAILED(처리 실패)는 통계에서 제외
     long countByUserIdAndStatusNot(Long userId, AnswerStatus status);
