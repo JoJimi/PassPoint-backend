@@ -9,6 +9,7 @@ import org.example.passpoint.domain.question.service.QuestionSearchService;
 import org.example.passpoint.domain.question.service.QuestionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -26,17 +27,20 @@ public class QuestionController {
     /** 질문 상세 조회 */
     @Operation(summary = "질문 상세", description = "질문 하나의 상세 정보를 조회한다 (정답류 제외).")
     @GetMapping("/{id}")
-    public QuestionDetailResponse getQuestionDetail(@PathVariable Long id) {
-        return questionService.getQuestionDetail(id);
+    public QuestionDetailResponse getQuestionDetail(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id) {
+        return questionService.getQuestionDetail(userId, id);
     }
 
     /** 키워드로 질문 검색 */
     @Operation(summary = "질문 검색", description = "키워드로 질문을 검색한다. (ElasticSearch + Nori).")
     @GetMapping
     public Page<QuestionSearchResponse> search (
+            @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String category,
             Pageable pageable) {
-        return questionSearchService.search(keyword, category, pageable);
+        return questionSearchService.search(userId, keyword, category, pageable);
     }
 }

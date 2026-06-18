@@ -14,9 +14,10 @@ public record QuestionDetailResponse(
         String difficulty,
         String title,
         String content,
-        String hint
+        String hint,
+        boolean bookmarked
 ) {
-    public static QuestionDetailResponse from(Question question) {
+    public static QuestionDetailResponse from(Question question, boolean bookmarked) {
         return new QuestionDetailResponse(
                 question.getId(),
                 question.getMainCategory().name(),
@@ -24,7 +25,8 @@ public record QuestionDetailResponse(
                 question.getDifficulty().name(),
                 question.getTitle(),
                 question.getContent(),
-                question.getHint()
+                question.getHint(),
+                bookmarked
         );
     }
 }

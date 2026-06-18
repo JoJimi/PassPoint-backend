@@ -16,9 +16,10 @@ public record QuestionSearchResponse(
         String subCategory,
         String difficulty,
         List<String> tags,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        boolean bookmarked
 ) {
-    public static QuestionSearchResponse from(QuestionDocument document) {
+    public static QuestionSearchResponse from(QuestionDocument document, boolean bookmarked) {
         return new QuestionSearchResponse(
                 document.getId(),
                 document.getTitle(),
@@ -26,7 +27,8 @@ public record QuestionSearchResponse(
                 document.getSubCategory(),
                 document.getDifficulty(),
                 document.getTags(),
-                document.getCreatedAt()
+                document.getCreatedAt(),
+                bookmarked
         );
     }
 }
