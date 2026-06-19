@@ -1,12 +1,13 @@
 package org.example.passpoint;
 
+import org.example.passpoint.global.firebase.FirebaseProperties;
 import org.example.passpoint.global.jwt.JwtProperties;
 import org.example.passpoint.global.s3.S3Properties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
-@EnableConfigurationProperties({JwtProperties.class, S3Properties.class})
+@EnableConfigurationProperties({JwtProperties.class, S3Properties.class, FirebaseProperties.class})
 @SpringBootApplication
 public class PassPointApplication {
 

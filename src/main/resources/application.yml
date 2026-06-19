@@ -2,15 +2,8 @@ spring:
   application:
     name: PassPoint
 
-  datasource:
-    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB}
-    username: ${POSTGRES_USER}
-    password: ${POSTGRES_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      max-lifetime: 290000        # 커넥션 최대 수명 (약 4.8분)
-      keepalive-time: 120000      # 2분마다 연결 살아있는지 확인
-      connection-timeout: 10000   # 연결 못 얻으면 10초 후 포기
+  profiles:
+    active: dev
 
   jpa:
     hibernate:
@@ -18,19 +11,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
-    show-sql: true
     open-in-view: false
 
-  data:
-    redis:
-      host: 127.0.0.1
-      port: 6379
-
-  elasticsearch:
-    uris: http://localhost:9200
-
   kafka:
-    bootstrap-servers: localhost:9092
     consumer:
       group-id: passpoint
       auto-offset-reset: earliest
@@ -53,6 +36,9 @@ spring:
 google:
   client-id: ${GOOGLE_CLIENT_ID}
 
+firebase:
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON}
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-validity: 1800000      # 30분 (밀리초)
@@ -72,8 +58,8 @@ cloud:
       endpoint: ${S3_ENDPOINT}
       bucket: ${S3_BUCKET}
       region: ${S3_REGION}
-      access-key: ${S3_ACCESS_KEY}
-      secret-key: ${S3_SECRET_KEY}
+      access-key: ${S3_ACCESS_KEY:}    # 운영은 비워두고 EC2 IAM Role로 폴백
+      secret-key: ${S3_SECRET_KEY:}
       path-style: ${S3_PATH_STYLE}
       presigned-url-expiry-minutes: 5
       public-endpoint: ${S3_PUBLIC_ENDPOINT:}  # 실디바이스용

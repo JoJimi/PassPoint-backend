@@ -18,6 +18,9 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
     @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.id = :id")
     Optional<Answer> findByIdWithQuestion(@Param("id") Long id);
 
+    @Query("SELECT a FROM Answer a JOIN FETCH a.question JOIN FETCH a.user WHERE a.id = :id")
+    Optional<Answer> findByIdWithQuestionAndUser(@Param("id") Long id);
+
     // 이력 목록에서는 FAILED(처리 실패) 답변을 노출하지 않는다 (GET /answers/{id} 단건 조회는 폴링 계약상 FAILED도 그대로 보여줘야 하므로 영향 없음)
     @Query("SELECT a FROM Answer a JOIN FETCH a.question WHERE a.user.id = :userId AND a.status <> :excludedStatus")
     Page<Answer> findByUserIdAndStatusNot(@Param("userId") Long userId, @Param("excludedStatus") AnswerStatus excludedStatus, Pageable pageable);

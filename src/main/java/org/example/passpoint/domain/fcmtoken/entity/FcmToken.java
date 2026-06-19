@@ -36,4 +36,9 @@ public class FcmToken extends BaseEntity {
         this.user = user;
         this.token = token;
     }
+
+    // 다른 계정이 쓰던 토큰을 같은 기기에서 재등록하는 경우 (재로그인) 소유자 변경
+    public void reassignOwner(User user) {
+        this.user = user;
+    }
 }
