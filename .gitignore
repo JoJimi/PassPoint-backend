@@ -37,5 +37,7 @@ out/
 .vscode/
 
 /.env
+prod-secrets.env
+img*.png
 CLAUDE.md
 /docs/**
