@@ -55,11 +55,11 @@ management:
 cloud:
   aws:
     s3:
-      endpoint: ${S3_ENDPOINT}
+      endpoint: ${S3_ENDPOINT:}        # 운영(실제 S3)은 비워두면 SDK가 리전으로 엔드포인트 자동 결정, 로컬 MinIO만 지정
       bucket: ${S3_BUCKET}
       region: ${S3_REGION}
       access-key: ${S3_ACCESS_KEY:}    # 운영은 비워두고 EC2 IAM Role로 폴백
       secret-key: ${S3_SECRET_KEY:}
-      path-style: ${S3_PATH_STYLE}
+      path-style: ${S3_PATH_STYLE:false}  # 운영(실제 S3)은 virtual-hosted(false), 로컬 MinIO만 true
       presigned-url-expiry-minutes: 5
       public-endpoint: ${S3_PUBLIC_ENDPOINT:}  # 실디바이스용
