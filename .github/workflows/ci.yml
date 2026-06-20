@@ -1,0 +1,97 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      # 외부 유료 API는 실제 호출 없이 컨텍스트만 뜨면 되므로 더미 값으로 충분 (LLM/STT는 테스트에서 @MockitoBean으로 교체됨)
+      OPENAI_API_KEY: dummy-key-for-ci
+      GOOGLE_CLIENT_ID: dummy-client-id.apps.googleusercontent.com
+      JWT_SECRET: ci-only-test-secret-0123456789abcdef0123456789abcdef
+      # 실제 Firebase 프로젝트와 무관한 더미 서비스 계정 키 (구조만 유효, 어떤 계정에도 접근 못 함) - FirebaseConfig 빈 생성용
+      FIREBASE_CREDENTIALS_JSON: '{"type":"service_account","project_id":"passpoint-ci-dummy","private_key_id":"0000000000000000000000000000000000000000","private_key":"-----BEGIN PRIVATE KEY-----\r\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC2zw/v0nzL0V1x\r\n2t3oNEheK1WdL0BovwvsfuiMQcxkMVCjOMNu5s/gMxOaJKnij8IMjGAodbTVIVIW\r\nbDOG5oE7jYZU0KnDBUROxqPAp30hw2RS7eaN4QsMieWnjm7T+PXbATfZD4Hx/A0y\r\nFKenupTmJ5d4POVPpijhv/tpIFu3UyAhnHbbtfVy+Y1A/osHPs4LMdmlxKsA9Yij\r\nXdI0k2mGhKSKptzsF432neEPNGby0ausamb+Z0BhIu46/rgYZj9AvRR7XKe+z7AT\r\nVN4nOn+xYMhAzMFtePzs7ng1sVVdZadkr8YL49SetufYk8EMgneJ4XRn55vXbbRN\r\nZFnyXef7AgMBAAECggEABn92sA4ZzH7dJPJkJ+BP4DUHHoay8eY0jMv4BSBDnR4Z\r\noSuf2r3OjsgR/s0l0r1MZvjIZDfG3TqJee2PqVBhMJY3u6UNG7cAthIeePcbHgud\r\nccsuAkYJCAGQzbNk4hj72DSDYS5JbqoIaArO6MnbiBDJNAdqGTotQtT5oUN6rxnw\r\naeJrCCDepiwnjcLf+GKafTkbeTvRJndylYAjE+Ml1JzJNTvIKRddeUndTP8omv/s\r\nFnSrPM91nWvKVyXQVKfMrmP/H6YaYxkdJ+0V9y1OAorZJjgFOf1KGVoWwVU+bjrN\r\nO0WTz3cP+OLWwd4hfNe/XSl0Na7dJYduRj+JE4sOIQKBgQDiT7SN0yWwhOn2WP4S\r\nRZtYGcPBxDgQ2EH1XW+hBbVoBApXscEjY/F/ookK4+sKz6SbxxJm0rHbdwJpYSCb\r\n4Gbs3auxHDrcha51/yciNN1pGOLLpCRmb0jdS82jnthiaxdBKb3xeRFx26QIilkr\r\nKSIhltbWmyKOJmsp3BAWxR5aWwKBgQDOymWHfyahPKhDc00nIYN+wPSxXd0AxQQf\r\nZQ+zkhPUlsukYFgG6WcbR3YVbccDb1SBNfp1fFmHw6ybKp+VGz7b5kNHYyxW/L4S\r\n5ZyTM6qZOPREec1lYHy15SHq6A9RZ225P2qYguarFBZDZaYUGvUOQMHTP6gdaw2p\r\nadJ+823a4QKBgQDaFfsljOtODtezeRDmJMPNg46chG2O9geh3re7EVg+c15QIdDA\r\nPQi1ebjckMSo925mW9GE2tdgaXAeguW8sOQesINKuqySZBS6Sva4RP90zvGHUpdt\r\nSyKJdwok+ecF+LNBLWuIbqX79bA+Nqw1Jn9opQZFatxC5gzxGss6Vhyo7wKBgQC2\r\ns+4WVAoeZQhJZ+Lf0uVqJTNMTiEIIAmvb0v7HPI2XvEXjyPXH3rAiFfVQQOXjlJ8\r\nQuPBz5cOs5yaD4OlasgT45LHzOCNDoslCQdYq0psS/zNT0xg6GnnD8Xy1QtLofU4\r\nucYFb4o71uiArZuZoeOnryFQ8qonK8GLT/rxvUPvIQKBgGA+hIhfUyy6D2QhUeIZ\r\nZwGcrNZVMibSeILf+9YThJgrie3l1xL1ac3JfD765Qzdk9axkutSw7JjIOqFb6/4\r\nb7lkc+iKXJbUng1zEmRMyv9wuW2zqHhL8HRQuqhiOFN+Gwh64BsBpo8AtXEaRfJa\r\nSeRPRqMFFWMgJVe6jtR0CCAT\r\n-----END PRIVATE KEY-----\r\n","client_email":"firebase-adminsdk-dummy@passpoint-ci-dummy.iam.gserviceaccount.com","client_id":"000000000000000000000","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-dummy%40passpoint-ci-dummy.iam.gserviceaccount.com","universe_domain":"googleapis.com"}'
+      # dev 프로필이 기본이라 application-dev.yml의 플레이스홀더도 채워줘야 함 (Testcontainers가 실제 연결은 덮어씀)
+      POSTGRES_DB: passpoint
+      POSTGRES_USER: passpoint
+      POSTGRES_PASSWORD: passpoint
+      S3_ENDPOINT: http://localhost:9000
+      S3_BUCKET: passpoint-audio
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_PATH_STYLE: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run tests
+        run: ./gradlew test
+
+      - name: Build jar
+        run: ./gradlew bootJar -x test
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: passpoint:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # D1(인프라 EC2)·D4(CodeDeploy+ALB)가 준비되기 전까지는 비활성화.
+  # ECR 리포지토리/CodeDeploy 애플리케이션을 만들고 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION/CODEDEPLOY_BUCKET
+  # 시크릿을 등록한 뒤 if: false를 지우면 바로 동작한다.
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.ecr-login.outputs.registry }}/passpoint:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trigger CodeDeploy
+        run: |
+          aws deploy create-deployment \
+            --application-name PassPoint \
+            --deployment-group-name PassPoint-DeploymentGroup \
+            --s3-location bucket=${{ secrets.CODEDEPLOY_BUCKET }},key=appspec.zip,bundleType=zip
