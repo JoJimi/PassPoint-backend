@@ -48,6 +48,13 @@ server:
   port: 8080
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus   # Prometheus가 scrape할 /actuator/prometheus 노출
+  metrics:
+    tags:
+      application: passpoint                 # 모든 메트릭에 application=passpoint 태그 (대시보드 필터용)
   health:
     elasticsearch:
       enabled: false

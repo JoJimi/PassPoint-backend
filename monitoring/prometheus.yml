@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 5s          # 블루그린 전환 구간을 촘촘히 보려고 5초 간격
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: passpoint-app
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # ALB DNS로 긁는다 - 앱 인스턴스 IP가 블루그린으로 바뀌어도 ALB가 healthy 인스턴스로 라우팅
+      - targets: ['passpoint-alb-495577819.ap-northeast-2.elb.amazonaws.com:80']
