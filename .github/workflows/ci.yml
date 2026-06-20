@@ -51,12 +51,15 @@ jobs:
 
       - name: Build Docker image
         uses: docker/build-push-action@v6
+        env:
+          # 빌드 서머리(요약 이미지) 생성 단계에서 base64 페이로드가 그대로 에러로 새는 버그 회피
+          DOCKER_BUILD_SUMMARY: false
         with:
           context: .
           push: false
           tags: passpoint:${{ github.sha }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
   # D1(인프라 EC2)·D4(CodeDeploy+ALB)가 준비되기 전까지는 비활성화.
   # ECR 리포지토리/CodeDeploy 애플리케이션을 만들고 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION/CODEDEPLOY_BUCKET
@@ -85,12 +88,14 @@ jobs:
 
       - name: Build and push image to ECR
         uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_SUMMARY: false
         with:
           context: .
           push: true
           tags: ${{ steps.ecr-login.outputs.registry }}/passpoint:${{ github.sha }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
       - name: Trigger CodeDeploy
         run: |
