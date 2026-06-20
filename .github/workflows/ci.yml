@@ -61,13 +61,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=min
 
-  # D1(인프라 EC2)·D4(CodeDeploy+ALB)가 준비되기 전까지는 비활성화.
-  # ECR 리포지토리/CodeDeploy 애플리케이션을 만들고 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION/CODEDEPLOY_BUCKET
-  # 시크릿을 등록한 뒤 if: false를 지우면 바로 동작한다.
+  # D1(인프라 EC2)·D4(CodeDeploy+ALB) 준비 완료 - ECR/CodeDeploy/S3/GitHub Secrets 다 설정됨
   deploy:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
