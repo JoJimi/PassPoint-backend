@@ -97,6 +97,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=min
 
+      - name: Package CodeDeploy revision
+        run: |
+          echo "${{ github.sha }}" > scripts/IMAGE_TAG
+          zip -r appspec.zip appspec.yml scripts
+
+      - name: Upload revision to S3
+        run: aws s3 cp appspec.zip s3://${{ secrets.CODEDEPLOY_BUCKET }}/appspec.zip
+
       - name: Trigger CodeDeploy
         run: |
           aws deploy create-deployment \
