@@ -5,7 +5,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.passpoint.domain.auth.dto.request.EmailLoginRequest;
+import org.example.passpoint.domain.auth.dto.request.EmailSignupRequest;
 import org.example.passpoint.domain.auth.dto.request.GoogleLoginRequest;
+import org.example.passpoint.domain.auth.dto.request.KakaoLoginRequest;
 import org.example.passpoint.domain.auth.dto.request.RefreshRequest;
 import org.example.passpoint.domain.auth.dto.response.TokenResponse;
 import org.example.passpoint.domain.auth.service.AuthService;
@@ -34,6 +37,36 @@ public class AuthController {
 
         TokenResponse response = authService.loginWithGoogle(request.idToken());
         return ResponseEntity.ok(response);
+    }
+
+    /** 카카오 로그인 - 앱이 보낸 액세스 토큰으로 인증하고 JWT를 발급 */
+    @Operation(summary = "카카오 로그인", description = "카카오 액세스 토큰을 받아 로그인/가입 후 JWT를 발급한다.")
+    @PostMapping("/login/kakao")
+    public ResponseEntity<TokenResponse> loginWithKakao(
+            @Valid @RequestBody KakaoLoginRequest request) {
+
+        TokenResponse response = authService.loginWithKakao(request.accessToken());
+        return ResponseEntity.ok(response);
+    }
+
+    /** 이메일 로그인 - 이메일/비밀번호로 인증하고 JWT를 발급 */
+    @Operation(summary = "이메일 로그인", description = "이메일/비밀번호를 확인하고 JWT를 발급한다.")
+    @PostMapping("/login/email")
+    public ResponseEntity<TokenResponse> loginWithEmail(
+            @Valid @RequestBody EmailLoginRequest request) {
+
+        TokenResponse response = authService.loginWithEmail(request.email(), request.password());
+        return ResponseEntity.ok(response);
+    }
+
+    /** 이메일 회원가입 - 신규 계정 생성 후 즉시 JWT를 발급 (가입=로그인) */
+    @Operation(summary = "이메일 회원가입", description = "이메일/비밀번호/닉네임으로 신규 가입 후 JWT를 발급한다.")
+    @PostMapping("/signup/email")
+    public ResponseEntity<TokenResponse> signupWithEmail(
+            @Valid @RequestBody EmailSignupRequest request) {
+
+        TokenResponse response = authService.signupWithEmail(request);
+        return ResponseEntity.status(201).body(response);
     }
 
     /** 토큰 갱신 - refreshToken으로 Access/Refresh를 재발급한다. */

@@ -32,8 +32,12 @@ public enum ErrorCode {
     // OAuth
     OAUTH_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "AUTH101", "OAuth 인증에 실패했습니다."),
 
+    // 이메일 로그인
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH201", "이메일 또는 비밀번호가 일치하지 않습니다."),
+
     // 사용자 (USER)
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER001", "사용자를 찾을 수 없습니다."),
+    DUPLICATE_EMAIL(HttpStatus.CONFLICT, "USER002", "이미 가입된 이메일입니다."),
 
     // 질문 (QUESTION)
     QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "QUESTION001", "질문을 찾을 수 없습니다."),
