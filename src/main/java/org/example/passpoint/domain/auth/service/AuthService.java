@@ -92,7 +92,7 @@ public class AuthService {
     public TokenResponse signupWithEmail(EmailSignupRequest request) {
         String email = normalizeEmail(request.email());
 
-        if (userRepository.findByOauthProviderAndOauthId(OAuthProvider.EMAIL, email).isPresent()) {
+        if (userRepository.existsByEmail(email)) {
             throw new DuplicateEmailException();
         }
 
@@ -149,10 +149,17 @@ public class AuthService {
 
     /** 구글 신규 사용자 가입 처리 */
     private User registerNewGoogleUser(GoogleUserInfo googleUser) {
+        String email = normalizeEmail(googleUser.email());
+
+        // 이미 다른 provider(이메일/카카오)로 가입된 이메일이면 계정이 쪼개지므로 차단
+        if (userRepository.existsByEmail(email)) {
+            throw new DuplicateEmailException();
+        }
+
         User newUser = User.builder()
                 .oauthProvider(OAuthProvider.GOOGLE)
                 .oauthId(googleUser.oauthId())
-                .email(googleUser.email())
+                .email(email)
                 .nickname(googleUser.name())        // 초기 닉네임은 구글 이름으로
                 .build();
 
@@ -162,9 +169,16 @@ public class AuthService {
     /** 카카오 신규 사용자 가입 처리 */
     private User registerNewKakaoUser(KakaoUserInfo kakaoUser) {
         // 이메일 동의를 거부했거나 비즈 앱 미전환이면 email이 null로 옴 -> users.email(nullable=false)을 만족시키기 위한 폴백
-        String email = kakaoUser.email() != null
-                ? kakaoUser.email()
-                : "kakao_" + kakaoUser.oauthId() + "@kakao.local";
+        String email = normalizeEmail(
+                kakaoUser.email() != null
+                        ? kakaoUser.email()
+                        : "kakao_" + kakaoUser.oauthId() + "@kakao.local"
+        );
+
+        // 이미 다른 provider(이메일/구글)로 가입된 이메일이면 계정이 쪼개지므로 차단
+        if (userRepository.existsByEmail(email)) {
+            throw new DuplicateEmailException();
+        }
 
         User newUser = User.builder()
                 .oauthProvider(OAuthProvider.KAKAO)

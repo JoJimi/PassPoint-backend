@@ -3,6 +3,7 @@ package org.example.passpoint.domain.auth.service;
 import org.example.passpoint.domain.auth.client.GoogleOAuthClient;
 import org.example.passpoint.domain.auth.client.KakaoOAuthClient;
 import org.example.passpoint.domain.auth.dto.request.EmailSignupRequest;
+import org.example.passpoint.domain.auth.dto.response.GoogleUserInfo;
 import org.example.passpoint.domain.auth.dto.response.KakaoUserInfo;
 import org.example.passpoint.domain.auth.dto.response.TokenResponse;
 import org.example.passpoint.domain.user.entity.OAuthProvider;
@@ -180,8 +181,7 @@ class AuthServiceTest {
     @Test
     void 이메일회원가입_신규이메일이면_비밀번호를암호화해저장하고토큰을발급한다() {
         EmailSignupRequest request = new EmailSignupRequest("New@Test.com", "password1234", "newbie");
-        given(userRepository.findByOauthProviderAndOauthId(OAuthProvider.EMAIL, "new@test.com"))
-                .willReturn(Optional.empty());
+        given(userRepository.existsByEmail("new@test.com")).willReturn(false);
         given(passwordEncoder.encode("password1234")).willReturn("encoded-pw");
         given(userRepository.save(any(User.class))).willAnswer(invocation -> {
             User saved = invocation.getArgument(0);
@@ -206,14 +206,42 @@ class AuthServiceTest {
     @Test
     void 이메일회원가입_이미가입된이메일이면_DuplicateEmailException() {
         EmailSignupRequest request = new EmailSignupRequest("test@example.com", "password1234", "tester");
-        User existing = existingUser(OAuthProvider.EMAIL, "test@example.com", "test@example.com", "tester", USER_ID);
-        given(userRepository.findByOauthProviderAndOauthId(OAuthProvider.EMAIL, "test@example.com"))
-                .willReturn(Optional.of(existing));
+        given(userRepository.existsByEmail("test@example.com")).willReturn(true);
 
         assertThatThrownBy(() -> authService.signupWithEmail(request))
                 .isInstanceOf(DuplicateEmailException.class);
 
         verify(userRepository, never()).save(any());
         verifyNoInteractions(passwordEncoder, jwtProvider);
+    }
+
+    @Test
+    void 구글로그인_신규가입인데_이미다른방식으로가입된이메일이면_DuplicateEmailException() {
+        given(googleOAuthClient.verify(ACCESS_TOKEN))
+                .willReturn(new GoogleUserInfo("google-1", "test@example.com", "구글유저"));
+        given(userRepository.findByOauthProviderAndOauthId(OAuthProvider.GOOGLE, "google-1"))
+                .willReturn(Optional.empty());
+        given(userRepository.existsByEmail("test@example.com")).willReturn(true);
+
+        assertThatThrownBy(() -> authService.loginWithGoogle(ACCESS_TOKEN))
+                .isInstanceOf(DuplicateEmailException.class);
+
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(jwtProvider);
+    }
+
+    @Test
+    void 카카오로그인_신규가입인데_이미다른방식으로가입된이메일이면_DuplicateEmailException() {
+        given(kakaoOAuthClient.getUserInfo(ACCESS_TOKEN))
+                .willReturn(new KakaoUserInfo("kakao-9", "test@example.com", "카카오유저"));
+        given(userRepository.findByOauthProviderAndOauthId(OAuthProvider.KAKAO, "kakao-9"))
+                .willReturn(Optional.empty());
+        given(userRepository.existsByEmail("test@example.com")).willReturn(true);
+
+        assertThatThrownBy(() -> authService.loginWithKakao(ACCESS_TOKEN))
+                .isInstanceOf(DuplicateEmailException.class);
+
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(jwtProvider);
     }
 }
